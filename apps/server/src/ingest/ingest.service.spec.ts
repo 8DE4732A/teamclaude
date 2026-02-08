@@ -17,7 +17,7 @@ describe('IngestService', () => {
       hasEventId: vi.fn().mockReturnValue(false),
       save: vi.fn(),
     } as unknown as EventRepository;
-    const service = new IngestService(repo);
+    const service = new IngestService(repo, { onEvent: vi.fn() } as any);
 
     const invalidPayload = {
       eventId: 'evt-1',
@@ -34,7 +34,7 @@ describe('IngestService', () => {
       hasEventId: vi.fn().mockReturnValueOnce(false).mockReturnValueOnce(true),
       save: vi.fn(),
     } as unknown as EventRepository;
-    const service = new IngestService(repo);
+    const service = new IngestService(repo, { onEvent: vi.fn() } as any);
 
     const payload: IngestEventDto = {
       eventId: 'evt-dup',
@@ -59,7 +59,7 @@ describe('IngestService', () => {
         seen.add(`${event.tenantId}:${event.eventId}`);
       }),
     } as unknown as EventRepository;
-    const service = new IngestService(repo);
+    const service = new IngestService(repo, { onEvent: vi.fn() } as any);
 
     const payloadA: IngestEventDto = { eventId: 'evt-shared', eventType: 'heartbeat' };
     const payloadB: IngestEventDto = { eventId: 'evt-shared', eventType: 'heartbeat' };
@@ -74,7 +74,7 @@ describe('IngestService', () => {
       hasEventId: vi.fn().mockReturnValue(false),
       save: vi.fn(),
     } as unknown as EventRepository;
-    const service = new IngestService(repo);
+    const service = new IngestService(repo, { onEvent: vi.fn() } as any);
 
     const payload: IngestEventDto = {
       eventId: 'evt-tenant-mismatch',
@@ -91,7 +91,7 @@ describe('IngestService', () => {
       hasEventId: vi.fn().mockReturnValue(false),
       save: vi.fn(),
     } as unknown as EventRepository;
-    const service = new IngestService(repo);
+    const service = new IngestService(repo, { onEvent: vi.fn() } as any);
 
     const payload: IngestEventDto = {
       eventId: 'evt-user-mismatch',

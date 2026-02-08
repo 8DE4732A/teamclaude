@@ -1,6 +1,7 @@
 import { BadRequestException, Inject, Injectable } from '@nestjs/common';
 
 import { TenantRequestContext } from '../auth/tenant-context.guard';
+import { PresenceService } from '../presence/presence.service';
 import { IngestEventDto } from './dto/ingest-events.dto';
 import { EventRepository } from './repositories/event.repository';
 
@@ -18,7 +19,10 @@ const ALLOWED_EVENT_FIELDS = new Set([
 
 @Injectable()
 export class IngestService {
-  constructor(@Inject(EventRepository) private readonly eventRepository: EventRepository) {}
+  constructor(
+    @Inject(EventRepository) private readonly eventRepository: EventRepository,
+    @Inject(PresenceService) private readonly presenceService: PresenceService,
+  ) {}
 
   ingestEvent(context: TenantRequestContext, payload: unknown) {
     if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
@@ -55,6 +59,7 @@ export class IngestService {
 
     if (!this.eventRepository.hasEventId(context.tenantId, eventId)) {
       this.eventRepository.save(event);
+      this.presenceService.onEvent(context.tenantId, context.userId);
     }
 
     return {
