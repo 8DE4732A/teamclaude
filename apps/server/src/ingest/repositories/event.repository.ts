@@ -7,12 +7,16 @@ export class EventRepository {
   private readonly seenEventIds = new Set<string>();
   private readonly events: IngestEventDto[] = [];
 
-  hasEventId(eventId: string): boolean {
-    return this.seenEventIds.has(eventId);
+  hasEventId(tenantId: string, eventId: string): boolean {
+    return this.seenEventIds.has(this.toScopedKey(tenantId, eventId));
   }
 
   save(event: IngestEventDto): void {
-    this.seenEventIds.add(event.eventId);
+    this.seenEventIds.add(this.toScopedKey(event.tenantId ?? '', event.eventId));
     this.events.push(event);
+  }
+
+  private toScopedKey(tenantId: string, eventId: string): string {
+    return `${tenantId}:${eventId}`;
   }
 }

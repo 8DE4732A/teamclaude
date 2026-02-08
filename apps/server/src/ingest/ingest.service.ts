@@ -39,9 +39,21 @@ export class IngestService {
       throw new BadRequestException('eventId is required');
     }
 
-    const event: IngestEventDto = candidateEvent as IngestEventDto;
+    if (candidateEvent.tenantId !== undefined && candidateEvent.tenantId !== context.tenantId) {
+      throw new BadRequestException('tenantId does not match tenant context');
+    }
 
-    if (!this.eventRepository.hasEventId(eventId)) {
+    if (candidateEvent.userId !== undefined && candidateEvent.userId !== context.userId) {
+      throw new BadRequestException('userId does not match tenant context');
+    }
+
+    const event: IngestEventDto = {
+      ...(candidateEvent as IngestEventDto),
+      tenantId: context.tenantId,
+      userId: context.userId,
+    };
+
+    if (!this.eventRepository.hasEventId(context.tenantId, eventId)) {
       this.eventRepository.save(event);
     }
 

@@ -55,7 +55,11 @@ describe('Tenant context guard (e2e)', () => {
       accepted: true,
       tenantId: 'tenant-1',
       userId: 'user-1',
-      payload,
+      payload: {
+        ...payload,
+        tenantId: 'tenant-1',
+        userId: 'user-1',
+      },
     });
   });
 });
