@@ -1,0 +1,12 @@
+{
+  "name": "@teamclaude/sidecar",
+  "private": true,
+  "version": "0.0.0",
+  "scripts": {
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0"
+  }
+}
