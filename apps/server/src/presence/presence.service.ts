@@ -69,10 +69,6 @@ export class PresenceService {
       return PresenceState.Coding;
     }
 
-    if (record.lastHeartbeatAt) {
-      return PresenceState.Idle;
-    }
-
     return PresenceState.Offline;
   }
 

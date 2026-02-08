@@ -21,6 +21,20 @@ describe('PresenceService', () => {
     expect(service.getState(tenantId, userId)).toBe(PresenceState.Offline);
   });
 
+  it('keeps state offline with heartbeat only and no events', () => {
+    const service = new PresenceService();
+    const tenantId = 'tenant-1';
+    const userId = 'user-1';
+    const now = new Date('2026-01-01T00:00:00.000Z');
+
+    service.onHeartbeat(tenantId, userId, now);
+
+    expect(service.getState(tenantId, userId)).toBe(PresenceState.Offline);
+
+    service.tick(new Date(now.getTime() + 10 * 60 * 1000));
+    expect(service.getState(tenantId, userId)).toBe(PresenceState.Offline);
+  });
+
   it('sets state to coding when a new event arrives', () => {
     const service = new PresenceService();
 
