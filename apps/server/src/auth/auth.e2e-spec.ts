@@ -42,7 +42,7 @@ describe('Tenant context guard (e2e)', () => {
   });
 
   it('POST /v1/ingest/events passes when tenant context headers are complete', async () => {
-    const payload = { event: 'heartbeat' };
+    const payload = { eventId: 'evt-1', eventType: 'heartbeat' };
 
     const response = await request(app.getHttpServer())
       .post('/v1/ingest/events')
