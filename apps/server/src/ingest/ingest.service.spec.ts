@@ -29,12 +29,15 @@ describe('IngestService', () => {
     expect(repo.save).not.toHaveBeenCalled();
   });
 
-  it('deduplicates duplicate eventId in same tenant', () => {
+  it('deduplicates storage but triggers presence for each accepted duplicate eventId', () => {
     const repo = {
       hasEventId: vi.fn().mockReturnValueOnce(false).mockReturnValueOnce(true),
       save: vi.fn(),
     } as unknown as EventRepository;
-    const service = new IngestService(repo, { onEvent: vi.fn() } as any);
+    const presenceService = {
+      onEvent: vi.fn(),
+    } as any;
+    const service = new IngestService(repo, presenceService);
 
     const payload: IngestEventDto = {
       eventId: 'evt-dup',
@@ -46,6 +49,9 @@ describe('IngestService', () => {
     expect(repo.hasEventId).toHaveBeenNthCalledWith(1, 'tenant-1', 'evt-dup');
     expect(repo.hasEventId).toHaveBeenNthCalledWith(2, 'tenant-1', 'evt-dup');
     expect(repo.save).toHaveBeenCalledTimes(1);
+    expect(presenceService.onEvent).toHaveBeenCalledTimes(2);
+    expect(presenceService.onEvent).toHaveBeenNthCalledWith(1, 'tenant-1', 'user-1');
+    expect(presenceService.onEvent).toHaveBeenNthCalledWith(2, 'tenant-1', 'user-1');
   });
 
   it('does not deduplicate same eventId across tenants', () => {

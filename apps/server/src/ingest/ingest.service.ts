@@ -59,8 +59,9 @@ export class IngestService {
 
     if (!this.eventRepository.hasEventId(context.tenantId, eventId)) {
       this.eventRepository.save(event);
-      this.presenceService.onEvent(context.tenantId, context.userId);
     }
+
+    this.presenceService.onEvent(context.tenantId, context.userId);
 
     return {
       accepted: true,
