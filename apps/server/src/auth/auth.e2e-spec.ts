@@ -1,3 +1,5 @@
+import 'reflect-metadata';
+
 import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -37,5 +39,23 @@ describe('Tenant context guard (e2e)', () => {
       .send({});
 
     expect(response.status).toBe(401);
+  });
+
+  it('POST /v1/ingest/events passes when tenant context headers are complete', async () => {
+    const payload = { event: 'heartbeat' };
+
+    const response = await request(app.getHttpServer())
+      .post('/v1/ingest/events')
+      .set('x-tenant-id', 'tenant-1')
+      .set('x-user-id', 'user-1')
+      .send(payload);
+
+    expect(response.status).toBe(201);
+    expect(response.body).toEqual({
+      accepted: true,
+      tenantId: 'tenant-1',
+      userId: 'user-1',
+      payload,
+    });
   });
 });
