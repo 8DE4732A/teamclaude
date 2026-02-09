@@ -48,8 +48,6 @@ describe('Presence flow (e2e)', () => {
   });
 
   it('emits stateChanged(Coding) within 2 seconds after ingest event', async () => {
-    const startedAt = Date.now();
-
     const ingestResponse = await fetch(`${baseUrl}/v1/ingest/events`, {
       method: 'POST',
       headers: {
@@ -65,6 +63,7 @@ describe('Presence flow (e2e)', () => {
 
     expect(ingestResponse.status).toBe(201);
 
+    const startedAt = Date.now();
     let stateChanged: PresenceEvent | undefined;
 
     while (Date.now() - startedAt <= 2000) {

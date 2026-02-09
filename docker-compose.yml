@@ -27,7 +27,7 @@ services:
     command: >
       sh -c "corepack enable && pnpm install && pnpm --dir apps/server start"
     env_file:
-      - ./apps/server/.env.example
+      - ./apps/server/.env
     environment:
       PORT: 3000
     volumes:
@@ -39,11 +39,18 @@ services:
       - '3000:3000'
 
   web:
-    image: nginx:1.27-alpine
+    image: node:20-alpine
     container_name: teamclaude-web
+    working_dir: /workspace
     restart: unless-stopped
+    command: >
+      sh -c "corepack enable && pnpm install && pnpm --dir apps/web dev"
+    env_file:
+      - ./apps/web/.env
+    volumes:
+      - ./:/workspace
     ports:
-      - '5173:80'
+      - '5173:5173'
     depends_on:
       - server
 

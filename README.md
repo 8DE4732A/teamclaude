@@ -8,7 +8,7 @@
 pnpm install
 ```
 
-2. 准备环境变量（可按需调整）：
+2. 准备环境变量：
 
 ```bash
 cp apps/server/.env.example apps/server/.env
@@ -16,7 +16,7 @@ cp apps/web/.env.example apps/web/.env
 cp packages/sidecar/.env.example packages/sidecar/.env
 ```
 
-3. 使用 Compose 启动基础服务与应用：
+3. 使用 Compose 启动基础服务与应用（包含 server + web）：
 
 ```bash
 docker compose up -d
