@@ -15,6 +15,10 @@ type PresenceEvent = {
   };
 };
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 describe('Presence flow (e2e)', () => {
   let app: Awaited<ReturnType<typeof NestFactory.create>>;
   let baseUrl: string;
@@ -61,15 +65,24 @@ describe('Presence flow (e2e)', () => {
 
     expect(ingestResponse.status).toBe(201);
 
-    const stateChanged = eventStore.find(
-      (event) =>
-        event.event === 'presence.stateChanged' &&
-        event.payload?.tenantId === 'tenant-e2e' &&
-        event.payload?.userId === 'user-e2e' &&
-        event.payload?.state === 'Coding',
-    );
+    let stateChanged: PresenceEvent | undefined;
+
+    while (Date.now() - startedAt <= 2000) {
+      stateChanged = eventStore.find(
+        (event) =>
+          event.event === 'presence.stateChanged' &&
+          event.payload?.tenantId === 'tenant-e2e' &&
+          event.payload?.userId === 'user-e2e' &&
+          event.payload?.state === 'Coding',
+      );
+
+      if (stateChanged) {
+        break;
+      }
+
+      await sleep(20);
+    }
 
     expect(stateChanged).toBeDefined();
-    expect(Date.now() - startedAt).toBeLessThanOrEqual(2000);
   });
 });
