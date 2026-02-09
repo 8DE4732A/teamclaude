@@ -113,12 +113,29 @@ export class PresenceService {
       return;
     }
 
+    const occurredAt = at.toISOString();
+
     this.broadcastConsumer?.onStateChanged({
       tenantId: record.tenantId,
       userId: record.userId,
       state: record.state,
-      occurredAt: at.toISOString(),
+      occurredAt,
     });
+
+    this.broadcastConsumer?.onTargetChanged({
+      tenantId: record.tenantId,
+      userId: record.userId,
+      targetUserId: this.resolveTargetUserId(record),
+      occurredAt,
+    });
+  }
+
+  private resolveTargetUserId(record: PresenceRecord): string | null {
+    if (record.state === PresenceState.Coding) {
+      return record.userId;
+    }
+
+    return null;
   }
 
   private getKey(tenantId: string, userId: string): string {

@@ -24,4 +24,26 @@ describe('PresenceGateway', () => {
       occurredAt: '2026-01-01T00:00:00.000Z',
     });
   });
+
+  it('broadcasts targetChanged event to tenant room', () => {
+    const emit = vi.fn();
+    const to = vi.fn().mockReturnValue({ emit });
+    const gateway = new PresenceGateway();
+
+    gateway.setServer({ to });
+    gateway.broadcastTargetChanged({
+      tenantId: 'tenant-1',
+      userId: 'user-1',
+      targetUserId: 'user-1',
+      occurredAt: new Date('2026-01-01T00:00:00.000Z').toISOString(),
+    });
+
+    expect(to).toHaveBeenCalledWith('tenant:tenant-1');
+    expect(emit).toHaveBeenCalledWith('presence.targetChanged', {
+      tenantId: 'tenant-1',
+      userId: 'user-1',
+      targetUserId: 'user-1',
+      occurredAt: '2026-01-01T00:00:00.000Z',
+    });
+  });
 });
