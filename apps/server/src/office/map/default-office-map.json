@@ -1,0 +1,9 @@
+{
+  "id": "default-office-map",
+  "name": "Default Office",
+  "desks": [
+    { "id": "desk-1", "x": 10, "y": 10 },
+    { "id": "desk-2", "x": 20, "y": 10 },
+    { "id": "desk-3", "x": 30, "y": 10 }
+  ]
+}

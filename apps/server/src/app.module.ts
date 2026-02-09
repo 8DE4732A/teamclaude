@@ -5,9 +5,10 @@ import { HealthController } from './health/health.controller';
 import { PresenceGateway } from './gateway/presence.gateway';
 import { IngestModule } from './ingest/ingest.module';
 import { PresenceModule } from './presence/presence.module';
+import { OfficeModule } from './office/office.module';
 
 @Module({
-  imports: [AuthModule, IngestModule, PresenceModule],
+  imports: [AuthModule, IngestModule, PresenceModule, OfficeModule],
   controllers: [HealthController],
   providers: [PresenceGateway],
 })
