@@ -1,4 +1,4 @@
-import type { PresenceEvent } from './OfficeScene';
+import type { PresenceEvent } from './types';
 
 type Listener = (snapshot: ReadonlyMap<string, PresenceEvent>) => void;
 
