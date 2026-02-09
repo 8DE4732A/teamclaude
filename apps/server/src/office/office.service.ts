@@ -60,14 +60,20 @@ export class OfficeService {
   }
 
   setAvatar(tenantId: string, userId: string, avatarPresetId: string) {
+    const normalizedAvatarPresetId = avatarPresetId.trim();
+
+    if (!normalizedAvatarPresetId) {
+      throw new BadRequestException('Invalid avatarPresetId');
+    }
+
     const key = this.getSettingsKey(tenantId, userId);
     const current = this.userSettings.get(key) ?? {};
-    this.userSettings.set(key, { ...current, avatarPresetId });
+    this.userSettings.set(key, { ...current, avatarPresetId: normalizedAvatarPresetId });
 
     return {
       tenantId,
       userId,
-      avatarPresetId,
+      avatarPresetId: normalizedAvatarPresetId,
     };
   }
 

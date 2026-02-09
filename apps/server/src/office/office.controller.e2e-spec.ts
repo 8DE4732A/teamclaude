@@ -74,4 +74,61 @@ describe('OfficeController (e2e)', () => {
       avatarPresetId: 'avatar-1',
     });
   });
+
+  it('POST /v1/me/avatar returns 400 for empty avatarPresetId', async () => {
+    const response = await request(app.getHttpServer())
+      .post('/v1/me/avatar')
+      .set('x-tenant-id', 'tenant-1')
+      .set('x-user-id', 'user-1')
+      .send({ avatarPresetId: '   ' });
+
+    expect(response.status).toBe(400);
+  });
+
+  it('POST /v1/me/avatar returns 400 when avatarPresetId is missing', async () => {
+    const response = await request(app.getHttpServer())
+      .post('/v1/me/avatar')
+      .set('x-tenant-id', 'tenant-1')
+      .set('x-user-id', 'user-1')
+      .send({});
+
+    expect(response.status).toBe(400);
+  });
+
+  it('GET /v1/me returns updated seat and avatar after writes', async () => {
+    await request(app.getHttpServer())
+      .post('/v1/me/seat')
+      .set('x-tenant-id', 'tenant-2')
+      .set('x-user-id', 'user-2')
+      .send({ seatId: 'desk-2' })
+      .expect(200);
+
+    await request(app.getHttpServer())
+      .post('/v1/me/avatar')
+      .set('x-tenant-id', 'tenant-2')
+      .set('x-user-id', 'user-2')
+      .send({ avatarPresetId: 'avatar-2' })
+      .expect(200);
+
+    const response = await request(app.getHttpServer())
+      .get('/v1/me')
+      .set('x-tenant-id', 'tenant-2')
+      .set('x-user-id', 'user-2');
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({
+      tenantId: 'tenant-2',
+      userId: 'user-2',
+      seatId: 'desk-2',
+      avatarPresetId: 'avatar-2',
+    });
+  });
+
+  it('POST /v1/me/avatar returns 401 without tenant headers', async () => {
+    const response = await request(app.getHttpServer())
+      .post('/v1/me/avatar')
+      .send({ avatarPresetId: 'avatar-1' });
+
+    expect(response.status).toBe(401);
+  });
 });
