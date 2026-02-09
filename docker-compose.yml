@@ -1,0 +1,52 @@
+version: '3.9'
+services:
+  mongo:
+    image: mongo:7
+    container_name: teamclaude-mongo
+    restart: unless-stopped
+    ports:
+      - '27017:27017'
+    volumes:
+      - mongo-data:/data/db
+
+  redis:
+    image: redis:7-alpine
+    container_name: teamclaude-redis
+    restart: unless-stopped
+    ports:
+      - '6379:6379'
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
+
+  server:
+    image: node:20-alpine
+    container_name: teamclaude-server
+    working_dir: /workspace
+    restart: unless-stopped
+    command: >
+      sh -c "corepack enable && pnpm install && pnpm --dir apps/server start"
+    env_file:
+      - ./apps/server/.env.example
+    environment:
+      PORT: 3000
+    volumes:
+      - ./:/workspace
+    depends_on:
+      - mongo
+      - redis
+    ports:
+      - '3000:3000'
+
+  web:
+    image: nginx:1.27-alpine
+    container_name: teamclaude-web
+    restart: unless-stopped
+    ports:
+      - '5173:80'
+    depends_on:
+      - server
+
+volumes:
+  mongo-data:
+  redis-data:

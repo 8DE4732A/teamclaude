@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 
 import {
   PresenceBroadcastConsumer,
@@ -30,7 +30,7 @@ type SocketClient = {
 export class PresenceGateway implements PresenceBroadcastConsumer {
   private server?: SocketServer;
 
-  constructor(private readonly presenceService?: PresenceService) {
+  constructor(@Inject(PresenceService) private readonly presenceService?: PresenceService) {
     this.presenceService?.registerBroadcastConsumer(this);
   }
 
