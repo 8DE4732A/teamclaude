@@ -9,41 +9,47 @@ export interface OfflineQueueFlushResult {
 export type OfflineQueueSender<TEvent> = (event: TEvent) => Promise<void>;
 
 export class OfflineQueue<TEvent extends Record<string, unknown> = Record<string, unknown>> {
+  private operationChain: Promise<void> = Promise.resolve();
+
   constructor(private readonly filePath: string) {}
 
   async enqueue(event: TEvent): Promise<void> {
-    await this.ensureParentDir();
-    await appendFile(this.filePath, `${JSON.stringify(event)}\n`, 'utf8');
+    await this.runExclusive(async () => {
+      await this.ensureParentDir();
+      await appendFile(this.filePath, `${JSON.stringify(event)}\n`, 'utf8');
+    });
   }
 
   async flush(sender: OfflineQueueSender<TEvent>): Promise<OfflineQueueFlushResult> {
-    const queued = await this.readAll();
+    return this.runExclusive(async () => {
+      const queued = await this.readAll();
 
-    if (queued.length === 0) {
-      return {
-        sent: 0,
-        remaining: 0,
-      };
-    }
-
-    let sent = 0;
-    const remaining: TEvent[] = [];
-
-    for (const event of queued) {
-      try {
-        await sender(event);
-        sent += 1;
-      } catch {
-        remaining.push(event);
+      if (queued.length === 0) {
+        return {
+          sent: 0,
+          remaining: 0,
+        };
       }
-    }
 
-    await this.overwrite(remaining);
+      let sent = 0;
+      const remaining: TEvent[] = [];
 
-    return {
-      sent,
-      remaining: remaining.length,
-    };
+      for (const event of queued) {
+        try {
+          await sender(event);
+          sent += 1;
+        } catch {
+          remaining.push(event);
+        }
+      }
+
+      await this.overwrite(remaining);
+
+      return {
+        sent,
+        remaining: remaining.length,
+      };
+    });
   }
 
   private async ensureParentDir(): Promise<void> {
@@ -78,5 +84,15 @@ export class OfflineQueue<TEvent extends Record<string, unknown> = Record<string
 
     const content = `${events.map((event) => JSON.stringify(event)).join('\n')}\n`;
     await writeFile(this.filePath, content, 'utf8');
+  }
+
+  private runExclusive<TResult>(operation: () => Promise<TResult>): Promise<TResult> {
+    const pending = this.operationChain.then(operation);
+    this.operationChain = pending.then(
+      () => undefined,
+      () => undefined,
+    );
+
+    return pending;
   }
 }
