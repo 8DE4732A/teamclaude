@@ -16,6 +16,14 @@ export class EventRepository {
     this.events.push(event);
   }
 
+  listByTenant(tenantId: string): IngestEventDto[] {
+    return this.events.filter((event) => event.tenantId === tenantId);
+  }
+
+  listByTenantUser(tenantId: string, userId: string): IngestEventDto[] {
+    return this.events.filter((event) => event.tenantId === tenantId && event.userId === userId);
+  }
+
   private toScopedKey(tenantId: string, eventId: string): string {
     return `${tenantId}:${eventId}`;
   }

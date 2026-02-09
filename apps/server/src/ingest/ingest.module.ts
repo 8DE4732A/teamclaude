@@ -11,5 +11,6 @@ import { EventRepository } from './repositories/event.repository';
   imports: [PresenceModule],
   controllers: [IngestController, HeartbeatController],
   providers: [IngestService, EventRepository, TenantContextGuard],
+  exports: [EventRepository],
 })
 export class IngestModule {}
