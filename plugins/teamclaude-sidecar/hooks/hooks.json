@@ -1,0 +1,41 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "command": "node \"$CLAUDE_PLUGIN_DIR/scripts/handle-hook.mjs\"",
+        "async": true
+      },
+      {
+        "matcher": "Edit|Write",
+        "command": "node \"$CLAUDE_PLUGIN_DIR/scripts/handle-hook.mjs\"",
+        "async": true
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "command": "node \"$CLAUDE_PLUGIN_DIR/scripts/handle-hook.mjs\"",
+        "async": true
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "startup|resume",
+        "command": "node \"$CLAUDE_PLUGIN_DIR/scripts/flush-and-heartbeat.mjs\"",
+        "async": true
+      }
+    ],
+    "Stop": [
+      {
+        "command": "node \"$CLAUDE_PLUGIN_DIR/scripts/flush-and-heartbeat.mjs\"",
+        "async": true
+      }
+    ],
+    "SessionEnd": [
+      {
+        "command": "node \"$CLAUDE_PLUGIN_DIR/scripts/flush-and-heartbeat.mjs\"",
+        "async": true
+      }
+    ]
+  }
+}

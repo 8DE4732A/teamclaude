@@ -1,0 +1,9 @@
+{
+  "name": "teamclaude-sidecar",
+  "version": "0.0.1",
+  "description": "TeamClaude Sidecar – auto-reports coding activity from Claude Code",
+  "author": {
+    "name": "TeamClaude"
+  },
+  "hooks": "./hooks/hooks.json"
+}

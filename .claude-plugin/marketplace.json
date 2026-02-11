@@ -1,0 +1,24 @@
+{
+  "name": "teamclaude-marketplace",
+  "owner": {
+    "name": "TeamClaude"
+  },
+  "metadata": {
+    "description": "TeamClaude plugin marketplace – tools for team coding analytics and virtual office",
+    "version": "0.1.0",
+    "pluginRoot": "./plugins"
+  },
+  "plugins": [
+    {
+      "name": "teamclaude-sidecar",
+      "source": "./plugins/teamclaude-sidecar",
+      "description": "Auto-reports coding activity from Claude Code sessions to your TeamClaude server",
+      "version": "0.0.1",
+      "author": {
+        "name": "TeamClaude"
+      },
+      "keywords": ["analytics", "telemetry", "team"],
+      "category": "analytics"
+    }
+  ]
+}
