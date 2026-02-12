@@ -6,4 +6,3 @@ dist/
 *.ndjson
 .claude/
 .env
-docs/plans/
