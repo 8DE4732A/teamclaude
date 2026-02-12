@@ -55,11 +55,11 @@ function createMockServer(
   options: MockServerOptions = {},
 ): Promise<{
   url: string;
-  requests: Array<{ method: string; url: string; body: string }>;
+  requests: Array<{ method: string; url: string; body: string; headers: Record<string, string | string[] | undefined> }>;
   close: () => Promise<void>;
 }> {
   const { statusCode = 200 } = options;
-  const requests: Array<{ method: string; url: string; body: string }> = [];
+  const requests: Array<{ method: string; url: string; body: string; headers: Record<string, string | string[] | undefined> }> = [];
 
   return new Promise((resolve) => {
     const server = createServer((req: IncomingMessage, res: ServerResponse) => {
@@ -68,7 +68,12 @@ function createMockServer(
         body += chunk;
       });
       req.on('end', () => {
-        requests.push({ method: req.method ?? '', url: req.url ?? '', body });
+        requests.push({
+          method: req.method ?? '',
+          url: req.url ?? '',
+          body,
+          headers: req.headers as Record<string, string | string[] | undefined>,
+        });
         res.writeHead(statusCode, { 'content-type': 'application/json' });
         res.end('{}');
       });
@@ -206,5 +211,109 @@ describe('flush-and-heartbeat.mjs', () => {
     expect(heartbeatRequests.length).toBe(1);
     const eventRequests = server.requests.filter((r) => r.url === '/v1/ingest/events');
     expect(eventRequests.length).toBe(0);
+  });
+
+  // ── Bearer token auth tests ──────────────────────────────────────
+
+  it('sends Authorization: Bearer header when token file exists', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'flush-test-'));
+    cleanups.push(() => rm(dir, { recursive: true, force: true }));
+
+    const queueFile = join(dir, 'queue.ndjson');
+    await writeFile(queueFile, '{"eventId":"e1","eventType":"command"}\n', 'utf8');
+
+    const tokenFile = join(dir, 'token');
+    await writeFile(tokenFile, 'my-jwt-token-123', 'utf8');
+
+    const server = await createMockServer();
+    cleanups.push(() => server.close());
+
+    await runScript({
+      SIDECAR_API_BASE_URL: server.url,
+      SIDECAR_QUEUE_FILE: queueFile,
+      SIDECAR_TOKEN_FILE: tokenFile,
+    });
+
+    // Should have posted with Bearer header
+    const eventRequests = server.requests.filter((r) => r.url === '/v1/ingest/events');
+    expect(eventRequests.length).toBe(1);
+    expect(eventRequests[0].headers['authorization']).toBe('Bearer my-jwt-token-123');
+    // Should NOT have x-tenant-id/x-user-id
+    expect(eventRequests[0].headers['x-tenant-id']).toBeUndefined();
+    expect(eventRequests[0].headers['x-user-id']).toBeUndefined();
+
+    // Heartbeat should also use Bearer
+    const heartbeatRequests = server.requests.filter((r) => r.url === '/v1/ingest/heartbeat');
+    expect(heartbeatRequests.length).toBe(1);
+    expect(heartbeatRequests[0].headers['authorization']).toBe('Bearer my-jwt-token-123');
+  });
+
+  it('prefers token file over header env vars', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'flush-test-'));
+    cleanups.push(() => rm(dir, { recursive: true, force: true }));
+
+    const queueFile = join(dir, 'queue.ndjson');
+    await writeFile(queueFile, '{"eventId":"e1","eventType":"command"}\n', 'utf8');
+
+    const tokenFile = join(dir, 'token');
+    await writeFile(tokenFile, 'my-jwt-token', 'utf8');
+
+    const server = await createMockServer();
+    cleanups.push(() => server.close());
+
+    await runScript({
+      SIDECAR_API_BASE_URL: server.url,
+      SIDECAR_TENANT_ID: 't1',
+      SIDECAR_USER_ID: 'u1',
+      SIDECAR_QUEUE_FILE: queueFile,
+      SIDECAR_TOKEN_FILE: tokenFile,
+    });
+
+    const eventRequests = server.requests.filter((r) => r.url === '/v1/ingest/events');
+    expect(eventRequests.length).toBe(1);
+    // Token takes priority
+    expect(eventRequests[0].headers['authorization']).toBe('Bearer my-jwt-token');
+    expect(eventRequests[0].headers['x-tenant-id']).toBeUndefined();
+  });
+
+  it('falls back to header auth when no token file', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'flush-test-'));
+    cleanups.push(() => rm(dir, { recursive: true, force: true }));
+
+    const queueFile = join(dir, 'queue.ndjson');
+    await writeFile(queueFile, '{"eventId":"e1","eventType":"command"}\n', 'utf8');
+
+    const tokenFile = join(dir, 'no-such-token');
+
+    const server = await createMockServer();
+    cleanups.push(() => server.close());
+
+    await runScript({
+      SIDECAR_API_BASE_URL: server.url,
+      SIDECAR_TENANT_ID: 't1',
+      SIDECAR_USER_ID: 'u1',
+      SIDECAR_QUEUE_FILE: queueFile,
+      SIDECAR_TOKEN_FILE: tokenFile,
+    });
+
+    const eventRequests = server.requests.filter((r) => r.url === '/v1/ingest/events');
+    expect(eventRequests.length).toBe(1);
+    expect(eventRequests[0].headers['x-tenant-id']).toBe('t1');
+    expect(eventRequests[0].headers['x-user-id']).toBe('u1');
+    expect(eventRequests[0].headers['authorization']).toBeUndefined();
+  });
+
+  it('exits silently when only API URL set (no token, no headers)', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'flush-test-'));
+    cleanups.push(() => rm(dir, { recursive: true, force: true }));
+
+    const tokenFile = join(dir, 'no-such-token');
+
+    const result = await runScript({
+      SIDECAR_API_BASE_URL: 'http://localhost:9999',
+      SIDECAR_TOKEN_FILE: tokenFile,
+    });
+
+    expect(result.exitCode).toBe(0);
   });
 });

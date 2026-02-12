@@ -7,6 +7,9 @@
     "node": ">=18.0.0"
   },
   "scripts": {
+    "build": "pnpm --dir apps/web build",
+    "start": "pnpm --dir apps/server start",
+    "dev": "pnpm --dir apps/web dev & pnpm --dir apps/server start:dev",
     "test": "pnpm -r test",
     "test:e2e": "pnpm --dir apps/server exec vitest run --root ../.."
   }

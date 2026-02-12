@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process';
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -103,14 +103,15 @@ describe('handle-hook.mjs', () => {
     }
   });
 
-  it('exits silently when SIDECAR_TENANT_ID is not set', async () => {
+  it('exits silently when SIDECAR_TENANT_ID is not set and no token file', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'hook-test-'));
     const queueFile = join(dir, 'queue.ndjson');
+    const tokenFile = join(dir, 'no-such-token');
 
     try {
       const result = await runScript(
         { session_id: 's1', cwd: '/tmp', hook_event_name: 'PostToolUse', tool_name: 'Bash' },
-        { SIDECAR_USER_ID: 'u1', SIDECAR_QUEUE_FILE: queueFile },
+        { SIDECAR_USER_ID: 'u1', SIDECAR_QUEUE_FILE: queueFile, SIDECAR_TOKEN_FILE: tokenFile },
       );
 
       expect(result.exitCode).toBe(0);
@@ -199,6 +200,58 @@ describe('handle-hook.mjs', () => {
       expect(content).not.toContain('secret command');
       expect(content).not.toContain('secret output');
       expect(content).not.toContain('secret prompt');
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  // ── Token file auth tests ──────────────────────────────────────
+
+  it('queues events when token file exists (no SIDECAR_TENANT_ID needed)', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'hook-test-'));
+    const queueFile = join(dir, 'queue.ndjson');
+    const tokenFile = join(dir, 'token');
+    await writeFile(tokenFile, 'fake-jwt-token', 'utf8');
+
+    try {
+      await runScript(
+        { session_id: 's1', cwd: '/tmp/project', hook_event_name: 'PostToolUse', tool_name: 'Bash' },
+        { SIDECAR_QUEUE_FILE: queueFile, SIDECAR_TOKEN_FILE: tokenFile },
+      );
+
+      const content = await readFile(queueFile, 'utf8');
+      const event = JSON.parse(content.trim());
+      expect(event.eventType).toBe('command');
+      // No tenantId/userId since env vars not set
+      expect(event.tenantId).toBeUndefined();
+      expect(event.userId).toBeUndefined();
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('includes tenantId/userId when both token and env vars are present', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'hook-test-'));
+    const queueFile = join(dir, 'queue.ndjson');
+    const tokenFile = join(dir, 'token');
+    await writeFile(tokenFile, 'fake-jwt-token', 'utf8');
+
+    try {
+      await runScript(
+        { session_id: 's1', cwd: '/tmp/project', hook_event_name: 'UserPromptSubmit' },
+        {
+          SIDECAR_TENANT_ID: 't1',
+          SIDECAR_USER_ID: 'u1',
+          SIDECAR_QUEUE_FILE: queueFile,
+          SIDECAR_TOKEN_FILE: tokenFile,
+        },
+      );
+
+      const content = await readFile(queueFile, 'utf8');
+      const event = JSON.parse(content.trim());
+      expect(event.eventType).toBe('chat');
+      expect(event.tenantId).toBe('t1');
+      expect(event.userId).toBe('u1');
     } finally {
       await rm(dir, { recursive: true, force: true });
     }

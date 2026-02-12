@@ -7,7 +7,27 @@ Automatically reports coding activity from Claude Code sessions to your TeamClau
 - Node.js 18+
 - A running TeamClaude server instance
 
-## Environment Variables
+## Quick Setup (Token Auth — Recommended)
+
+Only one environment variable needed:
+
+```bash
+export SIDECAR_API_BASE_URL="https://your-server.com"
+```
+
+Then login via the slash command in Claude Code:
+
+```
+/teamclaude-sidecar:login
+```
+
+This opens your browser for Auth0 login and saves a JWT token to `~/.teamclaude/token`. After that, the plugin authenticates automatically — no `SIDECAR_TENANT_ID` or `SIDECAR_USER_ID` needed.
+
+To re-authenticate or switch users, run `/teamclaude-sidecar:login` again.
+
+## Alternative Setup (Header Auth)
+
+If you prefer not to use token auth, set all three environment variables:
 
 | Variable | Required | Description | Default |
 |---|---|---|---|
@@ -15,6 +35,7 @@ Automatically reports coding activity from Claude Code sessions to your TeamClau
 | `SIDECAR_TENANT_ID` | Yes | Your organization identifier | — |
 | `SIDECAR_USER_ID` | Yes | Your user identifier | — |
 | `SIDECAR_QUEUE_FILE` | No | Path to the offline queue file | `~/.teamclaude/queue.ndjson` |
+| `SIDECAR_TOKEN_FILE` | No | Path to the JWT token file | `~/.teamclaude/token` |
 
 Add these to `~/.zshrc` or `~/.bashrc`:
 
@@ -69,9 +90,12 @@ The plugin registers Claude Code hooks that fire on coding activity:
 
 ### Architecture
 
-Two scripts handle all work:
+Three scripts handle all work:
 
+- **`login.mjs`** — One-time login. Opens browser for Auth0 auth, receives JWT token, saves to `~/.teamclaude/token`.
 - **`handle-hook.mjs`** — Runs on every tool use / prompt. Appends a single NDJSON line to the queue file. No network I/O (<50ms).
 - **`flush-and-heartbeat.mjs`** — Runs on session start/stop. Sends queued events to the server and reports a heartbeat. Retains events on failure.
+
+Auth priority: **Bearer token** (from token file) > **x-tenant-id / x-user-id headers** (from env vars).
 
 All hooks run with `"async": true` so they never block Claude Code.

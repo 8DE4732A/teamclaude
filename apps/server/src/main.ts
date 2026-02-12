@@ -1,10 +1,12 @@
 import 'reflect-metadata';
 
 import { NestFactory } from '@nestjs/core';
+import session from 'express-session';
 
 import { AppModule } from './app.module';
 
 const DEFAULT_PORT = 3000;
+const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 
 function resolvePort(portValue: string | undefined): number {
   const parsedPort = Number.parseInt(portValue ?? '', 10);
@@ -18,6 +20,23 @@ function resolvePort(portValue: string | undefined): number {
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+
+  const isProduction = process.env.NODE_ENV === 'production';
+
+  app.use(
+    session({
+      secret: process.env.SESSION_SECRET ?? 'dev-session-secret',
+      resave: false,
+      saveUninitialized: false,
+      cookie: {
+        httpOnly: true,
+        sameSite: 'lax',
+        secure: isProduction,
+        maxAge: ONE_DAY_MS,
+      },
+    }),
+  );
+
   const port = resolvePort(process.env.PORT);
   await app.listen(port);
 }

@@ -26,9 +26,9 @@ describe('api client', () => {
       lastActiveAt: '2026-02-09T08:00:00.000Z',
     });
 
-    expect(fetchImpl).toHaveBeenNthCalledWith(1, 'http://localhost:3000/v1/office/map');
-    expect(fetchImpl).toHaveBeenNthCalledWith(2, 'http://localhost:3000/v1/me');
-    expect(fetchImpl).toHaveBeenNthCalledWith(3, 'http://localhost:3000/v1/stats/me/today');
+    expect(fetchImpl).toHaveBeenNthCalledWith(1, 'http://localhost:3000/v1/office/map', { credentials: 'include' });
+    expect(fetchImpl).toHaveBeenNthCalledWith(2, 'http://localhost:3000/v1/me', { credentials: 'include' });
+    expect(fetchImpl).toHaveBeenNthCalledWith(3, 'http://localhost:3000/v1/stats/me/today', { credentials: 'include' });
   });
 
   it('throws on non-2xx responses', async () => {
@@ -36,5 +36,21 @@ describe('api client', () => {
     const client = createApiClient({ fetchImpl });
 
     await expect(client.getMe()).rejects.toThrow('Request failed: 400 Bad Request');
+  });
+
+  it('checkAuth returns user info on success', async () => {
+    const user = { sub: 'auth0|123', email: 'alice@example.com', name: 'Alice' };
+    const fetchImpl = vi.fn(async () => new Response(JSON.stringify(user), { status: 200 })) as typeof fetch;
+    const client = createApiClient({ baseUrl: 'http://localhost:3000', fetchImpl });
+
+    await expect(client.checkAuth()).resolves.toEqual(user);
+    expect(fetchImpl).toHaveBeenCalledWith('http://localhost:3000/auth/me', { credentials: 'include' });
+  });
+
+  it('checkAuth throws on 401', async () => {
+    const fetchImpl = vi.fn(async () => new Response('Unauthorized', { status: 401, statusText: 'Unauthorized' })) as typeof fetch;
+    const client = createApiClient({ fetchImpl });
+
+    await expect(client.checkAuth()).rejects.toThrow('Request failed: 401 Unauthorized');
   });
 });

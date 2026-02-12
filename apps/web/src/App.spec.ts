@@ -60,6 +60,7 @@ describe('App', () => {
       getOfficeMap: async () => ({ mapId: 'floor-a' }),
       getMe: async () => ({ id: 'u1', name: 'Alice' }),
       getTodayStats: async () => ({ interactions: 5, lastActiveAt: '2026-02-09T10:00:00.000Z' }),
+      checkAuth: async () => ({ sub: 'u1', email: 'alice@example.com' }),
     };
 
     const root = (await App(apiClient)) as unknown as FakeElement;

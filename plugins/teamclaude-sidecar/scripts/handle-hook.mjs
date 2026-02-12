@@ -1,9 +1,12 @@
 #!/usr/bin/env node
 // handle-hook.mjs – Reads Claude Code hook JSON from stdin, maps to a SidecarEvent,
 // and appends it to a NDJSON queue file. No network I/O. Target: <50ms.
+//
+// Config: needs SIDECAR_TENANT_ID (header auth) OR a token file (Bearer auth).
+// When using token auth, tenantId/userId are extracted server-side from JWT.
 
 import { createHash, randomUUID } from 'node:crypto';
-import { appendFile, mkdir } from 'node:fs/promises';
+import { appendFile, mkdir, readFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 
@@ -53,13 +56,28 @@ function readStdin() {
   });
 }
 
+// ---------- Token file check ----------
+
+async function hasTokenFile() {
+  const tokenPath =
+    process.env.SIDECAR_TOKEN_FILE || join(homedir(), '.teamclaude', 'token');
+  try {
+    const content = await readFile(tokenPath, 'utf8');
+    return content.trim().length > 0;
+  } catch {
+    return false;
+  }
+}
+
 // ---------- Main ----------
 
 async function main() {
   const tenantId = process.env.SIDECAR_TENANT_ID;
   const userId = process.env.SIDECAR_USER_ID;
+  const tokenExists = await hasTokenFile();
 
-  if (!tenantId) {
+  // Need either a token file or tenantId for auth
+  if (!tenantId && !tokenExists) {
     return;
   }
 
@@ -80,7 +98,12 @@ async function main() {
     return;
   }
 
-  event.tenantId = tenantId;
+  // When using header auth, embed tenantId/userId in the event.
+  // When using token auth, server extracts these from JWT — but we still
+  // include them if available for offline queue consistency.
+  if (tenantId) {
+    event.tenantId = tenantId;
+  }
   if (userId) {
     event.userId = userId;
   }

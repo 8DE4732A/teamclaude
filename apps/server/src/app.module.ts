@@ -1,4 +1,6 @@
 import { Module } from '@nestjs/common';
+import { ServeStaticModule } from '@nestjs/serve-static';
+import { join } from 'path';
 
 import { AuthModule } from './auth/auth.module';
 import { HealthController } from './health/health.controller';
@@ -8,8 +10,18 @@ import { PresenceModule } from './presence/presence.module';
 import { OfficeModule } from './office/office.module';
 import { StatsModule } from './stats/stats.module';
 
+const staticRoot =
+  process.env.STATIC_ROOT || join(__dirname, '..', '..', 'web', 'dist');
+
 @Module({
-  imports: [AuthModule, IngestModule, PresenceModule, OfficeModule, StatsModule],
+  imports: [
+    ServeStaticModule.forRoot({ rootPath: staticRoot }),
+    AuthModule,
+    IngestModule,
+    PresenceModule,
+    OfficeModule,
+    StatsModule,
+  ],
   controllers: [HealthController],
   providers: [PresenceGateway],
 })
