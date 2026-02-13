@@ -7,14 +7,19 @@ import { User } from '../database/schemas/user.schema';
 
 interface OfficeDesk {
   id: string;
-  x: number;
-  y: number;
+  gridX: number;
+  gridY: number;
+  seatX: number;
+  seatY: number;
 }
 
 interface OfficeMap {
   id: string;
   name: string;
+  gridWidth: number;
+  gridHeight: number;
   desks: OfficeDesk[];
+  spawnPoint: { x: number; y: number };
 }
 
 @Injectable()

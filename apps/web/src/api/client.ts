@@ -1,11 +1,25 @@
+export interface OfficeDeskResponse {
+  id: string;
+  gridX: number;
+  gridY: number;
+  seatX: number;
+  seatY: number;
+}
+
 export interface OfficeMapResponse {
   mapId: string;
   name?: string;
+  gridWidth: number;
+  gridHeight: number;
+  desks: OfficeDeskResponse[];
+  spawnPoint: { x: number; y: number };
 }
 
 export interface MeResponse {
   id: string;
   name: string;
+  seatId?: string;
+  avatarPresetId?: string;
 }
 
 export interface HourlyInteractions {

@@ -61,4 +61,16 @@ describe('OfficeScene', () => {
       isOffline: true,
     });
   });
+
+  it('getAllAvatars returns all avatars as a ReadonlyMap', () => {
+    const scene = new OfficeScene();
+
+    scene.applyPresence({ userId: 'user-1', state: 'Coding', target: { x: 1, y: 2 } });
+    scene.applyPresence({ userId: 'user-2', state: 'Idle' });
+
+    const all = scene.getAllAvatars();
+    expect(all.size).toBe(2);
+    expect(all.has('user-1')).toBe(true);
+    expect(all.has('user-2')).toBe(true);
+  });
 });

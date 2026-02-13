@@ -76,9 +76,12 @@ describe('OfficeController (e2e)', () => {
     expect(response.status).toBe(200);
     expect(response.body).toMatchObject({
       id: 'default-office-map',
+      gridWidth: 30,
+      gridHeight: 20,
       desks: expect.arrayContaining([
-        expect.objectContaining({ id: 'desk-1' }),
+        expect.objectContaining({ id: 'desk-1', gridX: 5, gridY: 4, seatX: 5, seatY: 5 }),
       ]),
+      spawnPoint: { x: 15, y: 18 },
     });
   });
 

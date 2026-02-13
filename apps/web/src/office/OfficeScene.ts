@@ -37,4 +37,8 @@ export class OfficeScene {
   getAvatar(userId: string): AvatarState | undefined {
     return this.avatars.get(userId);
   }
+
+  getAllAvatars(): ReadonlyMap<string, AvatarState> {
+    return this.avatars;
+  }
 }
