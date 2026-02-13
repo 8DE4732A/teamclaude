@@ -12,7 +12,7 @@ describe('api client', () => {
       if (url.endsWith('/v1/me')) {
         return new Response(JSON.stringify({ id: 'user-1', name: 'Alice' }), { status: 200 });
       }
-      return new Response(JSON.stringify({ interactions: 7, lastActiveAt: '2026-02-09T08:00:00.000Z' }), {
+      return new Response(JSON.stringify({ interactions: 7, lastActiveAt: '2026-02-09T08:00:00.000Z', heatmap: [] }), {
         status: 200,
       });
     }) as typeof fetch;
@@ -24,6 +24,7 @@ describe('api client', () => {
     await expect(client.getTodayStats()).resolves.toEqual({
       interactions: 7,
       lastActiveAt: '2026-02-09T08:00:00.000Z',
+      heatmap: [],
     });
 
     expect(fetchImpl).toHaveBeenNthCalledWith(1, 'http://localhost:3000/v1/office/map', { credentials: 'include' });
@@ -52,5 +53,27 @@ describe('api client', () => {
     const client = createApiClient({ fetchImpl });
 
     await expect(client.checkAuth()).rejects.toThrow('Request failed: 401 Unauthorized');
+  });
+
+  it('getTeamTrend fetches /v1/stats/team/trend', async () => {
+    const trendData = [{ date: '2026-02-09', interactions: 5 }];
+    const fetchImpl = vi.fn(async () => new Response(JSON.stringify(trendData), { status: 200 })) as typeof fetch;
+    const client = createApiClient({ baseUrl: 'http://localhost:3000', fetchImpl });
+
+    await expect(client.getTeamTrend()).resolves.toEqual(trendData);
+    expect(fetchImpl).toHaveBeenCalledWith('http://localhost:3000/v1/stats/team/trend', { credentials: 'include' });
+  });
+
+  it('getTeamMembers fetches /v1/stats/team/members', async () => {
+    const membersData = {
+      members: [{ userId: 'u1', interactions: 3, lastActiveAt: null, status: 'offline' }],
+      summary: { totalInteractions: 3, activeMembers: 0, peakHour: null },
+      heatmap: [],
+    };
+    const fetchImpl = vi.fn(async () => new Response(JSON.stringify(membersData), { status: 200 })) as typeof fetch;
+    const client = createApiClient({ baseUrl: 'http://localhost:3000', fetchImpl });
+
+    await expect(client.getTeamMembers()).resolves.toEqual(membersData);
+    expect(fetchImpl).toHaveBeenCalledWith('http://localhost:3000/v1/stats/team/members', { credentials: 'include' });
   });
 });

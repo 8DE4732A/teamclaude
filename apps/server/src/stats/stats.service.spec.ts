@@ -198,4 +198,83 @@ describe('StatsService', () => {
       ]);
     });
   });
+
+  describe('getTeamMembers', () => {
+    it('aggregates members, heatmap, and summary for today events', async () => {
+      const now = new Date('2026-02-09T15:00:00.000Z');
+      const events: IngestEventDto[] = [
+        { eventId: 'e1', tenantId: 'tenant-1', userId: 'user-a', ts: '2026-02-09T14:58:00.000Z' },
+        { eventId: 'e2', tenantId: 'tenant-1', userId: 'user-a', ts: '2026-02-09T14:59:00.000Z' },
+        { eventId: 'e3', tenantId: 'tenant-1', userId: 'user-b', ts: '2026-02-09T10:00:00.000Z' },
+        { eventId: 'e4', tenantId: 'tenant-1', userId: 'user-c', ts: '2026-02-08T23:00:00.000Z' },
+      ];
+
+      const service = new StatsService(createRepository(events), () => now);
+      const result = await service.getTeamMembers('tenant-1');
+
+      expect(result.members).toHaveLength(2);
+      expect(result.members[0]).toEqual({
+        userId: 'user-a',
+        interactions: 2,
+        lastActiveAt: '2026-02-09T14:59:00.000Z',
+        status: 'active',
+      });
+      expect(result.members[1]).toEqual({
+        userId: 'user-b',
+        interactions: 1,
+        lastActiveAt: '2026-02-09T10:00:00.000Z',
+        status: 'offline',
+      });
+
+      expect(result.summary).toEqual({
+        totalInteractions: 3,
+        activeMembers: 1,
+        peakHour: 14,
+      });
+
+      expect(result.heatmap).toHaveLength(24);
+      expect(result.heatmap[10]).toEqual({ hour: 10, interactions: 1 });
+      expect(result.heatmap[14]).toEqual({ hour: 14, interactions: 2 });
+      expect(result.heatmap[0]).toEqual({ hour: 0, interactions: 0 });
+    });
+
+    it('assigns idle status for 5-15 min inactive users', async () => {
+      const now = new Date('2026-02-09T15:10:00.000Z');
+      const events: IngestEventDto[] = [
+        { eventId: 'e1', tenantId: 'tenant-1', userId: 'user-a', ts: '2026-02-09T15:03:00.000Z' },
+      ];
+
+      const service = new StatsService(createRepository(events), () => now);
+      const result = await service.getTeamMembers('tenant-1');
+
+      expect(result.members[0].status).toBe('idle');
+    });
+
+    it('returns empty members and null peakHour on empty data', async () => {
+      const now = new Date('2026-02-09T15:00:00.000Z');
+      const service = new StatsService(createRepository([]), () => now);
+      const result = await service.getTeamMembers('tenant-1');
+
+      expect(result.members).toEqual([]);
+      expect(result.summary).toEqual({ totalInteractions: 0, activeMembers: 0, peakHour: null });
+      expect(result.heatmap).toHaveLength(24);
+      expect(result.heatmap.every((h) => h.interactions === 0)).toBe(true);
+    });
+
+    it('sorts members by interactions descending', async () => {
+      const now = new Date('2026-02-09T15:00:00.000Z');
+      const events: IngestEventDto[] = [
+        { eventId: 'e1', tenantId: 'tenant-1', userId: 'user-low', ts: '2026-02-09T10:00:00.000Z' },
+        { eventId: 'e2', tenantId: 'tenant-1', userId: 'user-high', ts: '2026-02-09T10:00:00.000Z' },
+        { eventId: 'e3', tenantId: 'tenant-1', userId: 'user-high', ts: '2026-02-09T11:00:00.000Z' },
+        { eventId: 'e4', tenantId: 'tenant-1', userId: 'user-high', ts: '2026-02-09T12:00:00.000Z' },
+      ];
+
+      const service = new StatsService(createRepository(events), () => now);
+      const result = await service.getTeamMembers('tenant-1');
+
+      expect(result.members[0].userId).toBe('user-high');
+      expect(result.members[1].userId).toBe('user-low');
+    });
+  });
 });

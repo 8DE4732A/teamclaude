@@ -151,4 +151,33 @@ describe('StatsController (e2e)', () => {
       interactions: expect.any(Number),
     });
   });
+
+  it('GET /v1/stats/team/members returns expected structure', async () => {
+    const response = await request(app.getHttpServer())
+      .get('/v1/stats/team/members')
+      .set('x-tenant-id', 'tenant-stats')
+      .set('x-user-id', 'user-stats');
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({
+      members: expect.any(Array),
+      summary: {
+        totalInteractions: expect.any(Number),
+        activeMembers: expect.any(Number),
+        peakHour: expect.anything(),
+      },
+      heatmap: expect.any(Array),
+    });
+    expect(response.body.heatmap).toHaveLength(24);
+    expect(response.body.heatmap[0]).toEqual({
+      hour: expect.any(Number),
+      interactions: expect.any(Number),
+    });
+  });
+
+  it('GET /v1/stats/team/members returns 401 without context', async () => {
+    const response = await request(app.getHttpServer()).get('/v1/stats/team/members');
+
+    expect(response.status).toBe(401);
+  });
 });

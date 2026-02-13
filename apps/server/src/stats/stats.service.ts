@@ -1,6 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 
 import { EventRepository } from '../ingest/repositories/event.repository';
+import type { TeamMembersResponse } from './dto/team-member-stats.dto';
 
 interface HourlyInteractions {
   hour: number;
@@ -73,6 +74,74 @@ export class StatsService {
     }
 
     return [...trendByDate.entries()].map(([date, interactions]) => ({ date, interactions }));
+  }
+
+  async getTeamMembers(tenantId: string): Promise<TeamMembersResponse> {
+    const events = await this.eventRepository.listByTenant(tenantId);
+    const now = this.nowProvider();
+    const todayStart = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+    const todayEnd = todayStart + 24 * 60 * 60 * 1000;
+
+    const todayEvents = events.filter((event) => {
+      if (!event.ts) return false;
+      const time = new Date(event.ts).getTime();
+      if (Number.isNaN(time)) return false;
+      return time >= todayStart && time < todayEnd;
+    });
+
+    const userMap = new Map<string, { interactions: number; lastActiveAt: string | null }>();
+    for (const event of todayEvents) {
+      const userId = event.userId ?? 'unknown';
+      const existing = userMap.get(userId);
+      if (!existing) {
+        userMap.set(userId, { interactions: 1, lastActiveAt: event.ts ?? null });
+      } else {
+        existing.interactions += 1;
+        if (event.ts && (!existing.lastActiveAt || event.ts > existing.lastActiveAt)) {
+          existing.lastActiveAt = event.ts;
+        }
+      }
+    }
+
+    const nowMs = now.getTime();
+    const members = [...userMap.entries()]
+      .map(([userId, data]) => {
+        let status: 'active' | 'idle' | 'offline' = 'offline';
+        if (data.lastActiveAt) {
+          const diffMs = nowMs - new Date(data.lastActiveAt).getTime();
+          const diffMin = diffMs / 60_000;
+          if (diffMin < 5) status = 'active';
+          else if (diffMin < 15) status = 'idle';
+        }
+        return { userId, interactions: data.interactions, lastActiveAt: data.lastActiveAt, status };
+      })
+      .sort((a, b) => b.interactions - a.interactions);
+
+    const hourlyCounts = new Map<number, number>();
+    for (const event of todayEvents) {
+      if (!event.ts) continue;
+      const hour = new Date(event.ts).getUTCHours();
+      hourlyCounts.set(hour, (hourlyCounts.get(hour) ?? 0) + 1);
+    }
+
+    const heatmap: { hour: number; interactions: number }[] = [];
+    for (let h = 0; h < 24; h++) {
+      heatmap.push({ hour: h, interactions: hourlyCounts.get(h) ?? 0 });
+    }
+
+    const totalInteractions = todayEvents.length;
+    const activeMembers = members.filter((m) => m.status === 'active').length;
+    const peakEntry = heatmap.reduce<{ hour: number; interactions: number } | null>(
+      (best, entry) => (!best || entry.interactions > best.interactions ? entry : best),
+      null,
+    );
+    const peakHour = peakEntry && peakEntry.interactions > 0 ? peakEntry.hour : null;
+
+    return {
+      members,
+      summary: { totalInteractions, activeMembers, peakHour },
+      heatmap,
+    };
   }
 
   private filterToday(timestamps: string[]): string[] {

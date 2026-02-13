@@ -8,9 +8,37 @@ export interface MeResponse {
   name: string;
 }
 
+export interface HourlyInteractions {
+  hour: number;
+  interactions: number;
+}
+
+export interface DailyInteractions {
+  date: string;
+  interactions: number;
+}
+
 export interface TodayStatsResponse {
   interactions: number;
   lastActiveAt: string | null;
+  heatmap: HourlyInteractions[];
+}
+
+export interface TeamMemberStats {
+  userId: string;
+  interactions: number;
+  lastActiveAt: string | null;
+  status: 'active' | 'idle' | 'offline';
+}
+
+export interface TeamMembersResponse {
+  members: TeamMemberStats[];
+  summary: {
+    totalInteractions: number;
+    activeMembers: number;
+    peakHour: number | null;
+  };
+  heatmap: HourlyInteractions[];
 }
 
 export interface AuthUser {
@@ -23,6 +51,8 @@ export interface ApiClient {
   getOfficeMap(): Promise<OfficeMapResponse>;
   getMe(): Promise<MeResponse>;
   getTodayStats(): Promise<TodayStatsResponse>;
+  getTeamTrend(): Promise<DailyInteractions[]>;
+  getTeamMembers(): Promise<TeamMembersResponse>;
   checkAuth(): Promise<AuthUser>;
 }
 
@@ -51,6 +81,8 @@ export function createApiClient(options: ApiClientOptions = {}): ApiClient {
     getOfficeMap: () => request<OfficeMapResponse>('/v1/office/map'),
     getMe: () => request<MeResponse>('/v1/me'),
     getTodayStats: () => request<TodayStatsResponse>('/v1/stats/me/today'),
+    getTeamTrend: () => request<DailyInteractions[]>('/v1/stats/team/trend'),
+    getTeamMembers: () => request<TeamMembersResponse>('/v1/stats/team/members'),
     checkAuth: () => request<AuthUser>('/auth/me'),
   };
 }

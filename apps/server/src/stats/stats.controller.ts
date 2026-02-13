@@ -30,4 +30,16 @@ export class StatsController {
 
     return await this.statsService.getTeamTrend(tenantContext.tenantId);
   }
+
+  @Get('team/members')
+  @UseGuards(TenantContextGuard)
+  async getTeamMembers(@Req() request: TenantAwareRequest) {
+    const tenantContext = request.tenantContext;
+
+    if (!tenantContext) {
+      throw new UnauthorizedException('Missing tenant context');
+    }
+
+    return await this.statsService.getTeamMembers(tenantContext.tenantId);
+  }
 }
