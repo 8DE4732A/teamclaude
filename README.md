@@ -27,7 +27,7 @@ TeamClaude 通过自动采集 Claude Code 的使用行为，将团队成员的�
 |---|---|---|
 | **Sidecar Plugin** | `plugins/teamclaude-sidecar/` | Claude Code 钩子，本地事件队列，批量上报 |
 | **Server** | `apps/server/` | 事件接收、去重、Presence 状态机、WebSocket 广播、统计聚合 |
-| **Web** | `apps/web/` | 虚拟办公室渲染、Avatar 动画、HUD 数据卡片 |
+| **Web** | `apps/web/` | Phaser 3 虚拟办公室、Tiled Map 渲染、Avatar 寻路动画、HUD 数据卡片、管理后台 |
 
 ## 当前实现状况
 
@@ -37,9 +37,10 @@ TeamClaude 通过自动采集 Claude Code 的使用行为，将团队成员的�
 - **事件接收 API** — `POST /v1/ingest/events` + `POST /v1/ingest/heartbeat`，字段白名单校验，eventId 去重，租户隔离
 - **Presence 状态机** — Coding / Idle / Offline 三态转换，5 分钟无活动→Idle，15 分钟无心跳→Offline
 - **WebSocket 广播** — Socket.io 按租户分房间推送 `presence.stateChanged` 和 `presence.targetChanged`
-- **Office 模块** — 静态地图加载、座位分配、Avatar 预设选择
+- **Office 模块** — 静态地图加载（Tiled JSON 格式）、座位分配、Avatar 预设选择
 - **Stats 模块** — 个人今日统计（交互次数、最后活跃、24h 热力图）、团队 7 日趋势
-- **Web 前端** — API Client、OfficeScene 状态机、PresenceStore 响应式订阅、UserHudCard 组件
+- **Web 前端** — Phaser 3 引擎渲染虚拟办公室、Tiled Map 30×20 瓦片地图、A* 寻路 + 闲逛 AI、Avatar spritesheet 动画（6 配色×10 帧）、点击 Avatar 弹出 HUD 数据卡片、PresenceStore 响应式订阅
+- **管理后台** — 团队统计概览卡片、7 日趋势折线图、24h 活跃热力图、成员详情表格
 - **Auth0 BFF 认证** — 浏览器端 OIDC 登录 + session cookie，`/auth/login` → Auth0 → `/auth/callback`；`/auth/me` 获取当前用户；`/auth/logout` 登出
 - **CLI/Plugin Token 认证** — 插件通过 `/teamclaude-sidecar:login` slash command 触发浏览器登录，服务端签发 30 天 JWT 存储到 `~/.teamclaude/token`，后续请求自动携带 `Authorization: Bearer <token>`；用户只需配一个 `SIDECAR_API_BASE_URL`
 - **三策略 TenantContext Guard** — Session cookie > Bearer JWT > `x-tenant-id`/`x-user-id` Header fallback，Bearer 存在但无效时直接 401 不降级
@@ -48,15 +49,14 @@ TeamClaude 通过自动采集 Claude Code 的使用行为，将团队成员的�
 
 ### 待实现
 
-- 虚拟办公室像素风渲染（Tilemap + Canvas）和 Avatar 寻路动画
-- 管理后台数据报表 UI
 - AI 生成像素头像
+- 虚拟办公室互动功能（角色靠近触发聊天气泡）
 
 ## 路线图
 
 | 阶段 | 内容 |
 |---|---|
-| **P1 (MVP)** | ~~数据上报~~ ✓、~~Auth0 认证~~ ✓、~~CLI Token 认证~~ ✓、虚拟办公室（闲逛/编码状态切换）、基础报表 |
+| **P1 (MVP)** | ~~数据上报~~ ✓、~~Auth0 认证~~ ✓、~~CLI Token 认证~~ ✓、~~虚拟办公室~~ ✓、~~基础报表~~ ✓ |
 | **P2** | AI 生成像素头像、个人详细分析面板 |
 | **P3** | 虚拟办公室互动功能（角色靠近触发聊天气泡）、团队协作检测 |
 
