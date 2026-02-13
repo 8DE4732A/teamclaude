@@ -19,12 +19,12 @@ export class StatsService {
     private readonly nowProvider: () => Date = () => new Date(),
   ) {}
 
-  getMyToday(tenantId: string, userId: string): {
+  async getMyToday(tenantId: string, userId: string): Promise<{
     interactions: number;
     lastActiveAt: string | null;
     heatmap: HourlyInteractions[];
-  } {
-    const events = this.eventRepository.listByTenantUser(tenantId, userId);
+  }> {
+    const events = await this.eventRepository.listByTenantUser(tenantId, userId);
     const todayEvents = this.filterToday(events.map((event) => event.ts).filter((ts): ts is string => !!ts));
 
     const interactions = todayEvents.length;
@@ -47,8 +47,8 @@ export class StatsService {
     };
   }
 
-  getTeamTrend(tenantId: string): DailyInteractions[] {
-    const events = this.eventRepository.listByTenant(tenantId);
+  async getTeamTrend(tenantId: string): Promise<DailyInteractions[]> {
+    const events = await this.eventRepository.listByTenant(tenantId);
     const now = this.nowProvider();
     const trendByDate = new Map<string, number>();
 

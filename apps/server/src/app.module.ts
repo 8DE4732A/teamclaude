@@ -3,6 +3,7 @@ import { ServeStaticModule } from '@nestjs/serve-static';
 import { join } from 'path';
 
 import { AuthModule } from './auth/auth.module';
+import { DatabaseModule } from './database/database.module';
 import { HealthController } from './health/health.controller';
 import { PresenceGateway } from './gateway/presence.gateway';
 import { IngestModule } from './ingest/ingest.module';
@@ -16,6 +17,7 @@ const staticRoot =
 @Module({
   imports: [
     ServeStaticModule.forRoot({ rootPath: staticRoot }),
+    DatabaseModule,
     AuthModule,
     IngestModule,
     PresenceModule,

@@ -12,12 +12,12 @@ describe('IngestService', () => {
     userId: 'user-1',
   };
 
-  it('rejects payload with unknown fields', () => {
+  it('rejects payload with unknown fields', async () => {
     const repo = {
-      hasEventId: vi.fn().mockReturnValue(false),
-      save: vi.fn(),
+      hasEventId: vi.fn().mockResolvedValue(false),
+      save: vi.fn().mockResolvedValue(undefined),
     } as unknown as EventRepository;
-    const service = new IngestService(repo, { onEvent: vi.fn() } as any);
+    const service = new IngestService(repo, { onEvent: vi.fn().mockResolvedValue(undefined) } as any);
 
     const invalidPayload = {
       eventId: 'evt-1',
@@ -25,17 +25,17 @@ describe('IngestService', () => {
       unexpected: 'bad-field',
     } as IngestEventDto;
 
-    expect(() => service.ingestEvent(context, invalidPayload)).toThrow(BadRequestException);
+    await expect(service.ingestEvent(context, invalidPayload)).rejects.toThrow(BadRequestException);
     expect(repo.save).not.toHaveBeenCalled();
   });
 
-  it('deduplicates storage but triggers presence for each accepted duplicate eventId', () => {
+  it('deduplicates storage but triggers presence for each accepted duplicate eventId', async () => {
     const repo = {
-      hasEventId: vi.fn().mockReturnValueOnce(false).mockReturnValueOnce(true),
-      save: vi.fn(),
+      hasEventId: vi.fn().mockResolvedValueOnce(false).mockResolvedValueOnce(true),
+      save: vi.fn().mockResolvedValue(undefined),
     } as unknown as EventRepository;
     const presenceService = {
-      onEvent: vi.fn(),
+      onEvent: vi.fn().mockResolvedValue(undefined),
     } as any;
     const service = new IngestService(repo, presenceService);
 
@@ -44,8 +44,8 @@ describe('IngestService', () => {
       eventType: 'heartbeat',
     };
 
-    expect(() => service.ingestEvent(context, payload)).not.toThrow();
-    expect(() => service.ingestEvent(context, payload)).not.toThrow();
+    await expect(service.ingestEvent(context, payload)).resolves.not.toThrow();
+    await expect(service.ingestEvent(context, payload)).resolves.not.toThrow();
     expect(repo.hasEventId).toHaveBeenNthCalledWith(1, 'tenant-1', 'evt-dup');
     expect(repo.hasEventId).toHaveBeenNthCalledWith(2, 'tenant-1', 'evt-dup');
     expect(repo.save).toHaveBeenCalledTimes(1);
@@ -54,33 +54,33 @@ describe('IngestService', () => {
     expect(presenceService.onEvent).toHaveBeenNthCalledWith(2, 'tenant-1', 'user-1');
   });
 
-  it('does not deduplicate same eventId across tenants', () => {
+  it('does not deduplicate same eventId across tenants', async () => {
     const tenantA: TenantRequestContext = { tenantId: 'tenant-a', userId: 'user-a' };
     const tenantB: TenantRequestContext = { tenantId: 'tenant-b', userId: 'user-b' };
 
     const seen = new Set<string>();
     const repo = {
-      hasEventId: vi.fn((tenantId: string, eventId: string) => seen.has(`${tenantId}:${eventId}`)),
-      save: vi.fn((event: IngestEventDto) => {
+      hasEventId: vi.fn(async (tenantId: string, eventId: string) => seen.has(`${tenantId}:${eventId}`)),
+      save: vi.fn(async (event: IngestEventDto) => {
         seen.add(`${event.tenantId}:${event.eventId}`);
       }),
     } as unknown as EventRepository;
-    const service = new IngestService(repo, { onEvent: vi.fn() } as any);
+    const service = new IngestService(repo, { onEvent: vi.fn().mockResolvedValue(undefined) } as any);
 
     const payloadA: IngestEventDto = { eventId: 'evt-shared', eventType: 'heartbeat' };
     const payloadB: IngestEventDto = { eventId: 'evt-shared', eventType: 'heartbeat' };
 
-    expect(() => service.ingestEvent(tenantA, payloadA)).not.toThrow();
-    expect(() => service.ingestEvent(tenantB, payloadB)).not.toThrow();
+    await expect(service.ingestEvent(tenantA, payloadA)).resolves.not.toThrow();
+    await expect(service.ingestEvent(tenantB, payloadB)).resolves.not.toThrow();
     expect(repo.save).toHaveBeenCalledTimes(2);
   });
 
-  it('rejects when payload tenantId mismatches guard context', () => {
+  it('rejects when payload tenantId mismatches guard context', async () => {
     const repo = {
-      hasEventId: vi.fn().mockReturnValue(false),
-      save: vi.fn(),
+      hasEventId: vi.fn().mockResolvedValue(false),
+      save: vi.fn().mockResolvedValue(undefined),
     } as unknown as EventRepository;
-    const service = new IngestService(repo, { onEvent: vi.fn() } as any);
+    const service = new IngestService(repo, { onEvent: vi.fn().mockResolvedValue(undefined) } as any);
 
     const payload: IngestEventDto = {
       eventId: 'evt-tenant-mismatch',
@@ -88,16 +88,16 @@ describe('IngestService', () => {
       eventType: 'heartbeat',
     };
 
-    expect(() => service.ingestEvent(context, payload)).toThrow(BadRequestException);
+    await expect(service.ingestEvent(context, payload)).rejects.toThrow(BadRequestException);
     expect(repo.save).not.toHaveBeenCalled();
   });
 
-  it('rejects when payload userId mismatches guard context', () => {
+  it('rejects when payload userId mismatches guard context', async () => {
     const repo = {
-      hasEventId: vi.fn().mockReturnValue(false),
-      save: vi.fn(),
+      hasEventId: vi.fn().mockResolvedValue(false),
+      save: vi.fn().mockResolvedValue(undefined),
     } as unknown as EventRepository;
-    const service = new IngestService(repo, { onEvent: vi.fn() } as any);
+    const service = new IngestService(repo, { onEvent: vi.fn().mockResolvedValue(undefined) } as any);
 
     const payload: IngestEventDto = {
       eventId: 'evt-user-mismatch',
@@ -105,7 +105,7 @@ describe('IngestService', () => {
       eventType: 'heartbeat',
     };
 
-    expect(() => service.ingestEvent(context, payload)).toThrow(BadRequestException);
+    await expect(service.ingestEvent(context, payload)).rejects.toThrow(BadRequestException);
     expect(repo.save).not.toHaveBeenCalled();
   });
 });

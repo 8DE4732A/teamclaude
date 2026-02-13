@@ -24,7 +24,7 @@ export class IngestService {
     @Inject(PresenceService) private readonly presenceService: PresenceService,
   ) {}
 
-  ingestEvent(context: TenantRequestContext, payload: unknown) {
+  async ingestEvent(context: TenantRequestContext, payload: unknown) {
     if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
       throw new BadRequestException('Payload must be an object');
     }
@@ -57,11 +57,11 @@ export class IngestService {
       userId: context.userId,
     };
 
-    if (!this.eventRepository.hasEventId(context.tenantId, eventId)) {
-      this.eventRepository.save(event);
+    if (!(await this.eventRepository.hasEventId(context.tenantId, eventId))) {
+      await this.eventRepository.save(event);
     }
 
-    this.presenceService.onEvent(context.tenantId, context.userId);
+    await this.presenceService.onEvent(context.tenantId, context.userId);
 
     return {
       accepted: true,

@@ -9,14 +9,14 @@ export class HeartbeatController {
 
   @Post('ingest/heartbeat')
   @UseGuards(TenantContextGuard)
-  heartbeat(@Req() request: TenantAwareRequest) {
+  async heartbeat(@Req() request: TenantAwareRequest) {
     const tenantContext = request.tenantContext;
 
     if (!tenantContext) {
       throw new UnauthorizedException('Missing tenant context');
     }
 
-    this.presenceService.onHeartbeat(tenantContext.tenantId, tenantContext.userId);
+    await this.presenceService.onHeartbeat(tenantContext.tenantId, tenantContext.userId);
 
     return {
       accepted: true,

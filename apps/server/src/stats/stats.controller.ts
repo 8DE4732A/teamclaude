@@ -9,25 +9,25 @@ export class StatsController {
 
   @Get('me/today')
   @UseGuards(TenantContextGuard)
-  getMyToday(@Req() request: TenantAwareRequest) {
+  async getMyToday(@Req() request: TenantAwareRequest) {
     const tenantContext = request.tenantContext;
 
     if (!tenantContext) {
       throw new UnauthorizedException('Missing tenant context');
     }
 
-    return this.statsService.getMyToday(tenantContext.tenantId, tenantContext.userId);
+    return await this.statsService.getMyToday(tenantContext.tenantId, tenantContext.userId);
   }
 
   @Get('team/trend')
   @UseGuards(TenantContextGuard)
-  getTeamTrend(@Req() request: TenantAwareRequest) {
+  async getTeamTrend(@Req() request: TenantAwareRequest) {
     const tenantContext = request.tenantContext;
 
     if (!tenantContext) {
       throw new UnauthorizedException('Missing tenant context');
     }
 
-    return this.statsService.getTeamTrend(tenantContext.tenantId);
+    return await this.statsService.getTeamTrend(tenantContext.tenantId);
   }
 }

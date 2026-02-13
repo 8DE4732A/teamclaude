@@ -6,8 +6,8 @@ import { StatsService } from './stats.service';
 
 function createRepository(events: IngestEventDto[]): EventRepository {
   return {
-    listByTenant: vi.fn((tenantId: string) => events.filter((event) => event.tenantId === tenantId)),
-    listByTenantUser: vi.fn((tenantId: string, userId: string) =>
+    listByTenant: vi.fn(async (tenantId: string) => events.filter((event) => event.tenantId === tenantId)),
+    listByTenantUser: vi.fn(async (tenantId: string, userId: string) =>
       events.filter((event) => event.tenantId === tenantId && event.userId === userId),
     ),
   } as unknown as EventRepository;
@@ -15,7 +15,7 @@ function createRepository(events: IngestEventDto[]): EventRepository {
 
 describe('StatsService', () => {
   describe('getMyToday', () => {
-    it('aggregates my today interactions and lastActiveAt', () => {
+    it('aggregates my today interactions and lastActiveAt', async () => {
       const now = new Date('2026-02-09T15:00:00.000Z');
       const events: IngestEventDto[] = [
         {
@@ -43,7 +43,7 @@ describe('StatsService', () => {
 
       const service = new StatsService(createRepository(events), () => now);
 
-      expect(service.getMyToday('tenant-1', 'user-1')).toEqual({
+      expect(await service.getMyToday('tenant-1', 'user-1')).toEqual({
         interactions: 2,
         lastActiveAt: '2026-02-09T12:30:00.000Z',
         heatmap: [
@@ -53,7 +53,7 @@ describe('StatsService', () => {
       });
     });
 
-    it('includes start of day and excludes next day start', () => {
+    it('includes start of day and excludes next day start', async () => {
       const now = new Date('2026-02-09T15:00:00.000Z');
       const events: IngestEventDto[] = [
         {
@@ -80,13 +80,13 @@ describe('StatsService', () => {
       ];
 
       const service = new StatsService(createRepository(events), () => now);
-      const result = service.getMyToday('tenant-1', 'user-1');
+      const result = await service.getMyToday('tenant-1', 'user-1');
 
       expect(result.interactions).toBe(2);
       expect(result.lastActiveAt).toBe('2026-02-09T23:59:59.999Z');
     });
 
-    it('returns lastActiveAt from latest timestamp when input is unordered', () => {
+    it('returns lastActiveAt from latest timestamp when input is unordered', async () => {
       const now = new Date('2026-02-09T15:00:00.000Z');
       const events: IngestEventDto[] = [
         {
@@ -114,14 +114,14 @@ describe('StatsService', () => {
 
       const service = new StatsService(createRepository(events), () => now);
 
-      expect(service.getMyToday('tenant-1', 'user-1').lastActiveAt).toBe('2026-02-09T13:15:00.000Z');
+      expect((await service.getMyToday('tenant-1', 'user-1')).lastActiveAt).toBe('2026-02-09T13:15:00.000Z');
     });
 
-    it('returns zero interactions and null lastActiveAt on empty data', () => {
+    it('returns zero interactions and null lastActiveAt on empty data', async () => {
       const now = new Date('2026-02-09T15:00:00.000Z');
       const service = new StatsService(createRepository([]), () => now);
 
-      expect(service.getMyToday('tenant-1', 'user-1')).toEqual({
+      expect(await service.getMyToday('tenant-1', 'user-1')).toEqual({
         interactions: 0,
         lastActiveAt: null,
         heatmap: [],
@@ -130,7 +130,7 @@ describe('StatsService', () => {
   });
 
   describe('getTeamTrend', () => {
-    it('counts only events inside 7-day window and ignores invalid ts', () => {
+    it('counts only events inside 7-day window and ignores invalid ts', async () => {
       const now = new Date('2026-02-09T15:00:00.000Z');
       const events: IngestEventDto[] = [
         {
@@ -172,7 +172,7 @@ describe('StatsService', () => {
 
       const service = new StatsService(createRepository(events), () => now);
 
-      expect(service.getTeamTrend('tenant-1')).toEqual([
+      expect(await service.getTeamTrend('tenant-1')).toEqual([
         { date: '2026-02-03', interactions: 1 },
         { date: '2026-02-04', interactions: 0 },
         { date: '2026-02-05', interactions: 0 },
@@ -183,11 +183,11 @@ describe('StatsService', () => {
       ]);
     });
 
-    it('returns a 7-day zero-filled structure for empty data', () => {
+    it('returns a 7-day zero-filled structure for empty data', async () => {
       const now = new Date('2026-02-09T15:00:00.000Z');
       const service = new StatsService(createRepository([]), () => now);
 
-      expect(service.getTeamTrend('tenant-1')).toEqual([
+      expect(await service.getTeamTrend('tenant-1')).toEqual([
         { date: '2026-02-03', interactions: 0 },
         { date: '2026-02-04', interactions: 0 },
         { date: '2026-02-05', interactions: 0 },

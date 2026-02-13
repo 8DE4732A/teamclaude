@@ -1,11 +1,47 @@
 import 'reflect-metadata';
 
 import { INestApplication } from '@nestjs/common';
+import { getConnectionToken, getModelToken } from '@nestjs/mongoose';
 import { Test } from '@nestjs/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import request from 'supertest';
 
 import { AppModule } from '../app.module';
+import { REDIS } from '../database/database.module';
+
+function createMockUserModel() {
+  const store = new Map<string, Record<string, unknown>>();
+
+  const model = {
+    findOne: (filter: Record<string, string>) => ({
+      lean: async () => store.get(`${filter.tenantId}:${filter.userId}`) ?? null,
+    }),
+    findOneAndUpdate: async (
+      filter: Record<string, string>,
+      update: Record<string, unknown>,
+      _opts: unknown,
+    ) => {
+      const key = `${filter.tenantId}:${filter.userId}`;
+      const current = store.get(key) ?? { tenantId: filter.tenantId, userId: filter.userId };
+      const $set = (update as any).$set ?? {};
+      const merged = { ...current, ...$set };
+      store.set(key, merged);
+      return merged;
+    },
+  };
+
+  return model;
+}
+
+function createMockRedis() {
+  return {
+    hset: async () => {},
+    hget: async () => null,
+    hgetall: async () => ({}),
+    expire: async () => 1,
+    scan: async () => ['0', []],
+  };
+}
 
 describe('OfficeController (e2e)', () => {
   let app: INestApplication;
@@ -13,14 +49,25 @@ describe('OfficeController (e2e)', () => {
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
       imports: [AppModule],
-    }).compile();
+    })
+      .overrideProvider(getConnectionToken())
+      .useValue({ close: async () => {} })
+      .overrideProvider(getModelToken('EventRaw'))
+      .useValue({ create: async () => ({}), find: () => ({ lean: async () => [] }) })
+      .overrideProvider(getModelToken('EventDedup'))
+      .useValue({ exists: async () => null, updateOne: () => ({ catch: () => {} }) })
+      .overrideProvider(getModelToken('User'))
+      .useValue(createMockUserModel())
+      .overrideProvider(REDIS)
+      .useValue(createMockRedis())
+      .compile();
 
     app = moduleRef.createNestApplication();
     await app.init();
   });
 
   afterAll(async () => {
-    await app.close();
+    await app?.close();
   });
 
   it('GET /v1/office/map returns map data', async () => {

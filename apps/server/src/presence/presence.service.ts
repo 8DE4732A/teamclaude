@@ -1,4 +1,7 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
+import Redis from 'ioredis';
+
+import { REDIS } from '../database/database.module';
 
 export enum PresenceState {
   Coding = 'Coding',
@@ -35,61 +38,124 @@ export interface PresenceBroadcastConsumer {
 
 const IDLE_THRESHOLD_MS = 5 * 60 * 1000;
 const OFFLINE_THRESHOLD_MS = 15 * 60 * 1000;
+const PRESENCE_TTL_SECONDS = 20 * 60; // 20 minutes
 
 @Injectable()
 export class PresenceService {
-  private readonly records = new Map<string, PresenceRecord>();
   private broadcastConsumer?: PresenceBroadcastConsumer;
+
+  constructor(@Inject(REDIS) private readonly redis: Redis) {}
 
   registerBroadcastConsumer(consumer: PresenceBroadcastConsumer): void {
     this.broadcastConsumer = consumer;
   }
 
-  onEvent(tenantId: string, userId: string, at: Date = new Date()): void {
-    const record = this.getOrCreateRecord(tenantId, userId);
-    const previousState = record.state;
-    record.lastEventAt = at;
-    record.state = PresenceState.Coding;
+  async onEvent(tenantId: string, userId: string, at: Date = new Date()): Promise<void> {
+    const key = this.getRedisKey(tenantId, userId);
+    const previousState = await this.getStateFromRedis(key);
 
-    this.emitStateChangedIfNeeded(record, previousState, at);
-  }
-
-  onHeartbeat(tenantId: string, userId: string, at: Date = new Date()): void {
-    const record = this.getOrCreateRecord(tenantId, userId);
-    const previousState = record.state;
-    record.lastHeartbeatAt = at;
-    record.state = this.computeState(record, at);
-
-    this.emitStateChangedIfNeeded(record, previousState, at);
-  }
-
-  tick(now: Date): void {
-    for (const record of this.records.values()) {
-      const previousState = record.state;
-      record.state = this.computeState(record, now);
-      this.emitStateChangedIfNeeded(record, previousState, now);
-    }
-  }
-
-  getState(tenantId: string, userId: string): PresenceState {
-    return this.records.get(this.getKey(tenantId, userId))?.state ?? PresenceState.Offline;
-  }
-
-  private getOrCreateRecord(tenantId: string, userId: string): PresenceRecord {
-    const key = this.getKey(tenantId, userId);
-    const existing = this.records.get(key);
-
-    if (existing) {
-      return existing;
-    }
-
-    const created: PresenceRecord = {
+    await this.redis.hset(key, {
       tenantId,
       userId,
-      state: PresenceState.Offline,
+      state: PresenceState.Coding,
+      lastEventAt: at.toISOString(),
+    });
+    await this.redis.expire(key, PRESENCE_TTL_SECONDS);
+
+    this.emitStateChangedIfNeeded(
+      { tenantId, userId, state: PresenceState.Coding },
+      previousState,
+      at,
+    );
+  }
+
+  async onHeartbeat(tenantId: string, userId: string, at: Date = new Date()): Promise<void> {
+    const key = this.getRedisKey(tenantId, userId);
+    const record = await this.getRecordFromRedis(key, tenantId, userId);
+    const previousState = record.state;
+
+    record.lastHeartbeatAt = at;
+    const newState = this.computeState(record, at);
+
+    await this.redis.hset(key, {
+      tenantId,
+      userId,
+      state: newState,
+      lastHeartbeatAt: at.toISOString(),
+      ...(record.lastEventAt ? { lastEventAt: record.lastEventAt.toISOString() } : {}),
+    });
+    await this.redis.expire(key, PRESENCE_TTL_SECONDS);
+
+    this.emitStateChangedIfNeeded(
+      { tenantId, userId, state: newState },
+      previousState,
+      at,
+    );
+  }
+
+  async tick(now: Date): Promise<void> {
+    let cursor = '0';
+    do {
+      const [nextCursor, keys] = await this.redis.scan(
+        cursor,
+        'MATCH',
+        'presence:user:*',
+        'COUNT',
+        100,
+      );
+      cursor = nextCursor;
+
+      for (const key of keys) {
+        const data = await this.redis.hgetall(key);
+        if (!data.tenantId || !data.userId) continue;
+
+        const record: PresenceRecord = {
+          tenantId: data.tenantId,
+          userId: data.userId,
+          state: (data.state as PresenceState) ?? PresenceState.Offline,
+          lastEventAt: data.lastEventAt ? new Date(data.lastEventAt) : undefined,
+          lastHeartbeatAt: data.lastHeartbeatAt ? new Date(data.lastHeartbeatAt) : undefined,
+        };
+
+        const previousState = record.state;
+        const newState = this.computeState(record, now);
+
+        if (newState !== previousState) {
+          await this.redis.hset(key, 'state', newState);
+          this.emitStateChangedIfNeeded(
+            { tenantId: record.tenantId, userId: record.userId, state: newState },
+            previousState,
+            now,
+          );
+        }
+      }
+    } while (cursor !== '0');
+  }
+
+  async getState(tenantId: string, userId: string): Promise<PresenceState> {
+    const key = this.getRedisKey(tenantId, userId);
+    return this.getStateFromRedis(key);
+  }
+
+  private async getStateFromRedis(key: string): Promise<PresenceState> {
+    const state = await this.redis.hget(key, 'state');
+    return (state as PresenceState) ?? PresenceState.Offline;
+  }
+
+  private async getRecordFromRedis(
+    key: string,
+    tenantId: string,
+    userId: string,
+  ): Promise<PresenceRecord> {
+    const data = await this.redis.hgetall(key);
+
+    return {
+      tenantId,
+      userId,
+      state: (data.state as PresenceState) ?? PresenceState.Offline,
+      lastEventAt: data.lastEventAt ? new Date(data.lastEventAt) : undefined,
+      lastHeartbeatAt: data.lastHeartbeatAt ? new Date(data.lastHeartbeatAt) : undefined,
     };
-    this.records.set(key, created);
-    return created;
   }
 
   private computeState(record: PresenceRecord, now: Date): PresenceState {
@@ -108,37 +174,33 @@ export class PresenceService {
     return PresenceState.Offline;
   }
 
-  private emitStateChangedIfNeeded(record: PresenceRecord, previousState: PresenceState, at: Date): void {
-    if (record.state === previousState) {
+  private emitStateChangedIfNeeded(
+    current: { tenantId: string; userId: string; state: PresenceState },
+    previousState: PresenceState,
+    at: Date,
+  ): void {
+    if (current.state === previousState) {
       return;
     }
 
     const occurredAt = at.toISOString();
 
     this.broadcastConsumer?.onStateChanged({
-      tenantId: record.tenantId,
-      userId: record.userId,
-      state: record.state,
+      tenantId: current.tenantId,
+      userId: current.userId,
+      state: current.state,
       occurredAt,
     });
 
     this.broadcastConsumer?.onTargetChanged({
-      tenantId: record.tenantId,
-      userId: record.userId,
-      targetUserId: this.resolveTargetUserId(record),
+      tenantId: current.tenantId,
+      userId: current.userId,
+      targetUserId: current.state === PresenceState.Coding ? current.userId : null,
       occurredAt,
     });
   }
 
-  private resolveTargetUserId(record: PresenceRecord): string | null {
-    if (record.state === PresenceState.Coding) {
-      return record.userId;
-    }
-
-    return null;
-  }
-
-  private getKey(tenantId: string, userId: string): string {
-    return `${tenantId}:${userId}`;
+  private getRedisKey(tenantId: string, userId: string): string {
+    return `presence:user:${tenantId}:${userId}`;
   }
 }

@@ -9,13 +9,13 @@ export class IngestController {
 
   @Post('ingest/events')
   @UseGuards(TenantContextGuard)
-  ingestEvents(@Req() request: TenantAwareRequest, @Body() body: unknown) {
+  async ingestEvents(@Req() request: TenantAwareRequest, @Body() body: unknown) {
     const tenantContext = request.tenantContext;
 
     if (!tenantContext) {
       throw new UnauthorizedException('Missing tenant context');
     }
 
-    return this.ingestService.ingestEvent(tenantContext, body);
+    return await this.ingestService.ingestEvent(tenantContext, body);
   }
 }

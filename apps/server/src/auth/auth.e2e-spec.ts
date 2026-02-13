@@ -1,16 +1,83 @@
 import 'reflect-metadata';
 
 import { INestApplication } from '@nestjs/common';
+import { getConnectionToken, getModelToken } from '@nestjs/mongoose';
 import { Test } from '@nestjs/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import request from 'supertest';
 import session from 'express-session';
 
 import { AppModule } from '../app.module';
+import { REDIS } from '../database/database.module';
 import { AuthService } from './auth.service';
 import { sign, verify } from './jwt.util';
 
 const JWT_SECRET = 'test-jwt-secret';
+
+function createMockEventRawModel() {
+  const events: Record<string, unknown>[] = [];
+
+  return {
+    create: async (doc: Record<string, unknown>) => {
+      events.push(doc);
+      return doc;
+    },
+    find: (filter: Record<string, unknown>) => ({
+      lean: async () =>
+        events.filter((e) => {
+          if (filter.tenantId && e.tenantId !== filter.tenantId) return false;
+          if (filter.userId && e.userId !== filter.userId) return false;
+          return true;
+        }),
+    }),
+  };
+}
+
+function createMockEventDedupModel() {
+  const seen = new Set<string>();
+
+  return {
+    exists: async (filter: { scopedEventId: string }) =>
+      seen.has(filter.scopedEventId) ? { _id: 'exists' } : null,
+    updateOne: (
+      filter: { scopedEventId: string },
+      _update: unknown,
+      _opts: unknown,
+    ) => {
+      seen.add(filter.scopedEventId);
+      return { catch: (fn: () => void) => fn };
+    },
+  };
+}
+
+function createMockRedis() {
+  const store = new Map<string, Map<string, string>>();
+
+  return {
+    hset: async (key: string, ...args: unknown[]) => {
+      if (!store.has(key)) store.set(key, new Map());
+      const hash = store.get(key)!;
+      if (args.length === 1 && typeof args[0] === 'object') {
+        const obj = args[0] as Record<string, string>;
+        for (const [field, value] of Object.entries(obj)) {
+          hash.set(field, String(value));
+        }
+      } else if (args.length === 2) {
+        hash.set(String(args[0]), String(args[1]));
+      }
+    },
+    hget: async (key: string, field: string) => store.get(key)?.get(field) ?? null,
+    hgetall: async (key: string) => {
+      const hash = store.get(key);
+      if (!hash || hash.size === 0) return {};
+      const result: Record<string, string> = {};
+      for (const [field, value] of hash) result[field] = value;
+      return result;
+    },
+    expire: async () => 1,
+    scan: async () => ['0', [...store.keys()].filter((k) => k.startsWith('presence:user:'))],
+  };
+}
 
 describe('Tenant context guard (e2e)', () => {
   let app: INestApplication;
@@ -42,6 +109,16 @@ describe('Tenant context guard (e2e)', () => {
           return verify(token, JWT_SECRET);
         },
       })
+      .overrideProvider(getConnectionToken())
+      .useValue({ close: async () => {} })
+      .overrideProvider(getModelToken('EventRaw'))
+      .useValue(createMockEventRawModel())
+      .overrideProvider(getModelToken('EventDedup'))
+      .useValue(createMockEventDedupModel())
+      .overrideProvider(getModelToken('User'))
+      .useValue({ findOne: () => ({ lean: async () => null }), findOneAndUpdate: async () => ({}) })
+      .overrideProvider(REDIS)
+      .useValue(createMockRedis())
       .compile();
 
     app = moduleRef.createNestApplication();
@@ -59,7 +136,7 @@ describe('Tenant context guard (e2e)', () => {
 
   afterAll(async () => {
     delete process.env.JWT_SECRET;
-    await app.close();
+    await app?.close();
   });
 
   it('POST /v1/ingest/events returns 401 when x-tenant-id is missing', async () => {
