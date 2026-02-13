@@ -12,5 +12,9 @@
     "dev": "pnpm --dir apps/web dev & pnpm --dir apps/server start:dev",
     "test": "pnpm -r test",
     "test:e2e": "pnpm --dir apps/server exec vitest run --root ../.."
+  },
+  "devDependencies": {
+    "canvas": "^3.2.1",
+    "tsx": "^4.20.6"
   }
 }
