@@ -108,4 +108,26 @@ describe('IngestService', () => {
     await expect(service.ingestEvent(context, payload)).rejects.toThrow(BadRequestException);
     expect(repo.save).not.toHaveBeenCalled();
   });
+
+  it('accepts an array of events (batch ingest)', async () => {
+    const repo = {
+      hasEventId: vi.fn().mockResolvedValue(false),
+      save: vi.fn().mockResolvedValue(undefined),
+    } as unknown as EventRepository;
+    const presenceService = {
+      onEvent: vi.fn().mockResolvedValue(undefined),
+    } as any;
+    const service = new IngestService(repo, presenceService);
+
+    const payload = [
+      { eventId: 'evt-batch-1', eventType: 'chat' } as IngestEventDto,
+      { eventId: 'evt-batch-2', eventType: 'command' } as IngestEventDto,
+    ];
+
+    const result = await service.ingestEvent(context, payload);
+    expect(result.accepted).toBe(true);
+    expect(result.count).toBe(2);
+    expect(repo.save).toHaveBeenCalledTimes(2);
+    expect(presenceService.onEvent).toHaveBeenCalledTimes(1);
+  });
 });

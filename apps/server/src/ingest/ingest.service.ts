@@ -25,40 +25,53 @@ export class IngestService {
   ) {}
 
   async ingestEvent(context: TenantRequestContext, payload: unknown) {
-    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
-      throw new BadRequestException('Payload must be an object');
+    // Support both single object and array of events
+    const items = Array.isArray(payload) ? payload : [payload];
+
+    if (items.length === 0) {
+      throw new BadRequestException('Payload must not be empty');
     }
 
-    const candidateEvent = payload as Record<string, unknown>;
+    const results: IngestEventDto[] = [];
 
-    for (const field of Object.keys(candidateEvent)) {
-      if (!ALLOWED_EVENT_FIELDS.has(field)) {
-        throw new BadRequestException(`Unknown field: ${field}`);
+    for (const item of items) {
+      if (!item || typeof item !== 'object' || Array.isArray(item)) {
+        throw new BadRequestException('Each event must be an object');
       }
-    }
 
-    const eventId = candidateEvent.eventId;
+      const candidateEvent = item as Record<string, unknown>;
 
-    if (typeof eventId !== 'string' || eventId.trim().length === 0) {
-      throw new BadRequestException('eventId is required');
-    }
+      for (const field of Object.keys(candidateEvent)) {
+        if (!ALLOWED_EVENT_FIELDS.has(field)) {
+          throw new BadRequestException(`Unknown field: ${field}`);
+        }
+      }
 
-    if (candidateEvent.tenantId !== undefined && candidateEvent.tenantId !== context.tenantId) {
-      throw new BadRequestException('tenantId does not match tenant context');
-    }
+      const eventId = candidateEvent.eventId;
 
-    if (candidateEvent.userId !== undefined && candidateEvent.userId !== context.userId) {
-      throw new BadRequestException('userId does not match tenant context');
-    }
+      if (typeof eventId !== 'string' || eventId.trim().length === 0) {
+        throw new BadRequestException('eventId is required');
+      }
 
-    const event: IngestEventDto = {
-      ...(candidateEvent as IngestEventDto),
-      tenantId: context.tenantId,
-      userId: context.userId,
-    };
+      if (candidateEvent.tenantId !== undefined && candidateEvent.tenantId !== context.tenantId) {
+        throw new BadRequestException('tenantId does not match tenant context');
+      }
 
-    if (!(await this.eventRepository.hasEventId(context.tenantId, eventId))) {
-      await this.eventRepository.save(event);
+      if (candidateEvent.userId !== undefined && candidateEvent.userId !== context.userId) {
+        throw new BadRequestException('userId does not match tenant context');
+      }
+
+      const event: IngestEventDto = {
+        ...(candidateEvent as IngestEventDto),
+        tenantId: context.tenantId,
+        userId: context.userId,
+      };
+
+      if (!(await this.eventRepository.hasEventId(context.tenantId, eventId))) {
+        await this.eventRepository.save(event);
+      }
+
+      results.push(event);
     }
 
     await this.presenceService.onEvent(context.tenantId, context.userId);
@@ -67,7 +80,7 @@ export class IngestService {
       accepted: true,
       tenantId: context.tenantId,
       userId: context.userId,
-      payload: event,
+      count: results.length,
     };
   }
 }

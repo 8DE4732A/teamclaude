@@ -5,6 +5,5 @@
   "author": {
     "name": "TeamClaude"
   },
-  "hooks": "./hooks/hooks.json",
   "skills": "./skills/"
 }

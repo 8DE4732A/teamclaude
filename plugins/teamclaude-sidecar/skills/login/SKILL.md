@@ -15,7 +15,7 @@ The script will:
 
 Execute:
 ```bash
-node "$CLAUDE_PLUGIN_DIR/scripts/login.mjs" $ARGUMENTS
+node "${CLAUDE_PLUGIN_ROOT}/scripts/login.mjs" $ARGUMENTS
 ```
 
 After login succeeds, confirm to the user that authentication is complete and the plugin will use the saved token automatically for all future requests. Only `SIDECAR_API_BASE_URL` environment variable is needed going forward.

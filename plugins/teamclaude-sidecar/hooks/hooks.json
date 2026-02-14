@@ -3,38 +3,62 @@
     "PostToolUse": [
       {
         "matcher": "Bash",
-        "command": "node \"$CLAUDE_PLUGIN_DIR/scripts/handle-hook.mjs\"",
-        "async": true
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/handle-hook.mjs\""
+          }
+        ]
       },
       {
         "matcher": "Edit|Write",
-        "command": "node \"$CLAUDE_PLUGIN_DIR/scripts/handle-hook.mjs\"",
-        "async": true
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/handle-hook.mjs\""
+          }
+        ]
       }
     ],
     "UserPromptSubmit": [
       {
-        "command": "node \"$CLAUDE_PLUGIN_DIR/scripts/handle-hook.mjs\"",
-        "async": true
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/handle-hook.mjs\""
+          }
+        ]
       }
     ],
     "SessionStart": [
       {
         "matcher": "startup|resume",
-        "command": "node \"$CLAUDE_PLUGIN_DIR/scripts/flush-and-heartbeat.mjs\"",
-        "async": true
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/flush-and-heartbeat.mjs\""
+          }
+        ]
       }
     ],
     "Stop": [
       {
-        "command": "node \"$CLAUDE_PLUGIN_DIR/scripts/flush-and-heartbeat.mjs\"",
-        "async": true
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/flush-and-heartbeat.mjs\""
+          }
+        ]
       }
     ],
     "SessionEnd": [
       {
-        "command": "node \"$CLAUDE_PLUGIN_DIR/scripts/flush-and-heartbeat.mjs\"",
-        "async": true
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/flush-and-heartbeat.mjs\""
+          }
+        ]
       }
     ]
   }
